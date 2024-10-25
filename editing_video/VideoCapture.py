@@ -3,8 +3,9 @@ import numpy as np
 import pandas as pd
 import time
 import matplotlib.pyplot as plt
+import sys
+import threading
 
-data = []
 
 def list_available_cameras():
     available_cameras = []
@@ -19,6 +20,37 @@ def list_available_cameras():
             cap.release()
         index += 1
     return available_cameras
+
+
+# Функция создания графика в реальном времени
+def create_real_time_graph():
+    plt.ion()  # Включаем интерактивный режим
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    line1, = ax.plot([], [], color='red', label='Sticker 1')
+    line2, = ax.plot([], [], color='blue', label='Sticker 2')
+
+    ax.set_xlim(0, 10)  # Диапазон по оси X
+    ax.set_ylim(0, 700)  # Диапазон по оси Y (измените по вашим данным)
+    ax.set_title('Real-time Object Tracking')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Coordinate Y')
+    ax.grid(True)
+    ax.legend()
+
+    return fig, ax, line1, line2
+
+
+# Функция обновления графика
+def update_graph(fig, ax, line1, line2, x_data, y1_data, y2_data):
+    line1.set_xdata(x_data)
+    line1.set_ydata(y1_data)
+    line2.set_xdata(x_data)
+    line2.set_ydata(y2_data)
+
+    ax.set_xlim(max(0, x_data[-1] - 100), x_data[-1])  # Поддержка "скроллинга" по X
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
 
 def save_data(data_time, name_csv_file):
@@ -80,9 +112,10 @@ def open_videostream():
 
 def open_videofile(videofile):
     cap = cv2.VideoCapture(videofile)
+
     if not cap.isOpened():
-        print("Ошибка: не удалось открыть видео.")
-        return
+        print("Ошибка: не удалось открыть видео!")
+        return None
     return cap
 
 
@@ -196,62 +229,82 @@ def track_sticker(sticker_roi, des_template, smoothed_x, smoothed_y, color_recta
     return sticker_roi, smoothed_x, smoothed_y
 
 
-
-def main_video_capture(cap):
-    # Инициализация AKAZE детектора
+def main_video_capture_helper(cap, realtime_graph=False):
     akaze = cv2.AKAZE_create()
-    # Инициализация
     kalman1 = init_kalman()
     kalman2 = init_kalman()
-    ret, frame = cap.read()
+    data = []
 
+    if cap is None:
+        sys.exit("Завершение программы: видеофайл не найден или не удалось открыть.")
+
+    ret, frame = cap.read()
     if ret:
         sticker1, sticker1_roi = select_sticker(frame)
         sticker2, sticker2_roi = select_sticker(frame)
-
         sticker1_gray = cv2.cvtColor(sticker1, cv2.COLOR_BGR2GRAY)
         sticker2_gray = cv2.cvtColor(sticker2, cv2.COLOR_BGR2GRAY)
-
         kp_template1, des_template1 = akaze.detectAndCompute(sticker1_gray, None)
         kp_template2, des_template2 = akaze.detectAndCompute(sticker2_gray, None)
-
         smoothed_x1, smoothed_y1 = sticker1_roi[0], sticker1_roi[1]
         smoothed_x2, smoothed_y2 = sticker2_roi[0], sticker2_roi[1]
-
     else:
         print("Не удалось захватить первый кадр")
-        exit()
+        return
 
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    start_time = time.time()  # Начало отсчета времени
+    start_time = time.time()
 
-    # Основной цикл обработки видео
+    if realtime_graph:
+        fig, ax, line1, line2 = create_real_time_graph()
+        x_data, y1_data, y2_data = [], [], []
+        last_graph_update_time = start_time  # Время последнего обновления графика
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         sticker1_roi, smoothed_x1, smoothed_y1 = track_sticker(sticker1_roi, des_template1, smoothed_x1, smoothed_y1,
                                                                (0, 255, 0), kalman1, gray_frame, frame, akaze, bf)
-
         sticker2_roi, smoothed_x2, smoothed_y2 = track_sticker(sticker2_roi, des_template2, smoothed_x2, smoothed_y2,
                                                                (0, 255, 255), kalman2, gray_frame, frame, akaze, bf)
         current_time = time.time() - start_time
         data.append((current_time, smoothed_y1, smoothed_y2))
 
-        cv2.imshow('Sticker Tracking', frame)
+        if realtime_graph:
+            # Добавляем новые данные для графика
+            x_data.append(current_time)
+            y1_data.append(smoothed_y1)
+            y2_data.append(smoothed_y2)
 
+            # Обновляем график раз в секунду
+            if current_time - (last_graph_update_time - start_time) >= 1:
+                update_graph(fig, ax, line1, line2, x_data, y1_data, y2_data)
+                last_graph_update_time = current_time  # Обновляем время последнего обновления графика
+
+        cv2.imshow('Sticker Tracking', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
     cap.release()
     cv2.destroyAllWindows()
+
+    # Сохраняем данные в CSV и выводим финальный график
     df = save_data(data, "tracking_data.csv")
     create_graph(df)
 
 
+def main_video_capture(cap):
+    main_video_capture_helper(cap, realtime_graph=False)
+
+
+def main_video_capture_with_realtimegraph(cap):
+    main_video_capture_helper(cap, realtime_graph=True)
+
 
 if __name__ == "__main__":
-    cap = open_videofile("val.mp4")
-    main_video_capture(cap)
+    videofile = "val.mp4"
+    cap = open_videofile(videofile)
+    main_video_capture_with_realtimegraph(cap)
