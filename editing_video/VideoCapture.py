@@ -8,6 +8,9 @@ import threading
 
 
 def list_available_cameras():
+    """
+    Проверяет доступность подключенных камер и возвращает список индексов доступных камер.
+    """
     available_cameras = []
     index = 0
 
@@ -22,16 +25,19 @@ def list_available_cameras():
     return available_cameras
 
 
-# Функция создания графика в реальном времени
-def create_real_time_graph():
-    plt.ion()  # Включаем интерактивный режим
+def create_realtime_graph():
+    """
+    Инициализирует интерактивный график для отображения данных в реальном времени.
+    Устанавливает стиль и оси графика.
+    """
+    plt.ion()  #  интерактивный режим
     fig, ax = plt.subplots(figsize=(10, 5))
 
     line1, = ax.plot([], [], color='red', label='Sticker 1')
     line2, = ax.plot([], [], color='blue', label='Sticker 2')
 
-    ax.set_xlim(0, 10)  # Диапазон по оси X
-    ax.set_ylim(0, 700)  # Диапазон по оси Y (измените по вашим данным)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 700)
     ax.set_title('Real-time Object Tracking')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Coordinate Y')
@@ -41,8 +47,10 @@ def create_real_time_graph():
     return fig, ax, line1, line2
 
 
-# Функция обновления графика
-def update_graph(fig, ax, line1, line2, x_data, y1_data, y2_data):
+def update_realtime_graph(fig, ax, line1, line2, x_data, y1_data, y2_data):
+    """
+    Обновляет данные на графике в реальном времени. Обновляет координаты и перерисовывает график.
+    """
     line1.set_xdata(x_data)
     line1.set_ydata(y1_data)
     line2.set_xdata(x_data)
@@ -53,17 +61,23 @@ def update_graph(fig, ax, line1, line2, x_data, y1_data, y2_data):
     fig.canvas.flush_events()
 
 
-def save_data(data_time, name_csv_file):
+def save_data(data_time, name_excel_file):
+    """
+    Сохраняет данные отслеживания в CSV файл. Если данных нет, выводит соответствующее сообщение.
+    """
     if not data_time:
         print("Нет данных для сохранения.")
         return
 
     df = pd.DataFrame(data_time, columns=['Time', 'Y1', 'Y2'])
-    df.to_csv(name_csv_file, index=False)
+    df.to_excel(name_excel_file, index=False)
     return df
 
 
 def create_graph(df):
+    """
+    Построение и сохранение итогового графика по данным из CSV файла.
+    """
     if df is None:
         print("Нет данных для построения графика.")
         return
@@ -81,6 +95,9 @@ def create_graph(df):
 
 
 def open_videostream():
+    """
+    Определяет доступные камеры и открывает видеопоток с выбранной пользователем камеры.
+    """
     list_cameras = list_available_cameras()
 
     if len(list_cameras) == 0:
@@ -110,7 +127,11 @@ def open_videostream():
         return
     return cap
 
+
 def open_videofile(videofile):
+    """
+    Открывает видеофайл. Возвращает объект видеозахвата или None при неудаче.
+    """
     cap = cv2.VideoCapture(videofile)
 
     if not cap.isOpened():
@@ -120,14 +141,18 @@ def open_videofile(videofile):
 
 
 def select_sticker(frame):
-    # Функция для выделения эталонного изображения стикера
+    """
+    Позволяет пользователю выбрать область интереса (ROI) на кадре для выделения эталонного изображения стикера.
+    """
     roi = cv2.selectROI("Select Sticker", frame, fromCenter=False, showCrosshair=True)
     sticker = frame[int(roi[1]):int(roi[1] + roi[3]), int(roi[0]):int(roi[0] + roi[2])]
     return sticker, roi
 
 
 def init_kalman():
-    # Инициализация фильтра Калмана
+    """
+    Инициализирует фильтр Калмана с предопределенными матрицами измерений и переходов.
+    """
     kalman = cv2.KalmanFilter(4, 2)
     kalman.measurementMatrix = np.array([[1, 0, 0, 0],
                                          [0, 1, 0, 0]], np.float32)
@@ -136,26 +161,29 @@ def init_kalman():
                                         [0, 0, 1, 0],
                                         [0, 0, 0, 1]], np.float32)
     kalman.processNoiseCov = np.eye(4, dtype=np.float32) * 0.01
-    kalman.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.1  # Увеличение ковариации измерений
+    kalman.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.1
     return kalman
 
 
 def apply_kalman_filter(kalman, x, y, smoothed_x, smoothed_y):
-    """Применяет фильтр Калмана для сглаживания координат."""
+    """
+    Применяет фильтр Калмана для сглаживания координат.
+    """
     return kalman_predict_and_correct(kalman, x, y, smoothed_x, smoothed_y)
 
 
 def kalman_predict_and_correct(kalman, x, y, smoothed_x, smoothed_y, alpha=0.1):
-    # Коррекция: обновляем фильтр на основании текущего измерения
+    """
+    Обновляет фильтр Калмана и использует предсказанные значения для сглаживания координат с экспоненциальным сглаживанием.
+    """
     measured = np.array([[np.float32(x)], [np.float32(y)]])
     kalman.correct(measured)
 
-    # Прогнозирование нового положения
     predicted = kalman.predict()
 
     # Извлекаем значения как скаляры
-    predicted_x = int(predicted[0][0])  # Преобразуем в целое число
-    predicted_y = int(predicted[1][0])  # Преобразуем в целое число
+    predicted_x = int(predicted[0][0])
+    predicted_y = int(predicted[1][0])
 
     # Дополнительное экспоненциальное сглаживание поверх фильтра Калмана
     smoothed_x = int(alpha * smoothed_x + (1 - alpha) * predicted_x)
@@ -165,19 +193,25 @@ def kalman_predict_and_correct(kalman, x, y, smoothed_x, smoothed_y, alpha=0.1):
 
 
 def extract_roi(frame, roi):
-    """Извлекает область интереса (ROI) из кадра."""
+    """
+    Извлекает область интереса (ROI) из текущего кадра.
+    """
     x, y, w, h = roi
     return frame[int(y):int(y + h), int(x):int(x + w)]
 
 
 def detect_keypoints_and_descriptors(roi_frame, akaze):
-    """Обнаруживает ключевые точки и дескрипторы в заданной области интереса."""
+    """
+    Обнаруживает ключевые точки и дескрипторы в выбранной области кадра (ROI).
+    """
     kp, des = akaze.detectAndCompute(roi_frame, None)
     return kp, des
 
 
 def match_descriptors(des_template, des_frame, bf, threshold=5):
-    """Сравнивает дескрипторы и возвращает совпадающие ключевые точки, если найдено достаточно совпадений."""
+    """
+    Сравнивает дескрипторы, возвращая совпадающие ключевые точки, если найдено достаточно совпадений.
+    """
     if des_frame is None or des_template is None:
         return None
 
@@ -185,12 +219,14 @@ def match_descriptors(des_template, des_frame, bf, threshold=5):
     matches = sorted(matches, key=lambda x: x.distance)
 
     if len(matches) > threshold:
-        return matches[:20]  # Ограничиваем до 20 лучших совпадений
+        return matches[:20]
     return None
 
 
 def calculate_new_position(matches, kp_frame, roi, frame_shape):
-    """Рассчитывает новое положение ROI на основе совпадающих точек."""
+    """
+    Рассчитывает новое положение области интереса (ROI) на основе совпадений ключевых точек.
+    """
     if matches is None:
         return roi
 
@@ -209,7 +245,9 @@ def calculate_new_position(matches, kp_frame, roi, frame_shape):
 
 
 def draw_rectangle(frame, roi, color):
-    """Рисует прямоугольник вокруг области интереса."""
+    """
+    Рисует прямоугольник вокруг заданной области интереса (ROI) на кадре.
+    """
     x, y, w, h = roi
     cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
@@ -230,6 +268,9 @@ def track_sticker(sticker_roi, des_template, smoothed_x, smoothed_y, color_recta
 
 
 def main_video_capture_helper(cap, realtime_graph=False):
+    """
+    Основная функция работы программы с выбором realtime_graph
+    """
     akaze = cv2.AKAZE_create()
     kalman1 = init_kalman()
     kalman2 = init_kalman()
@@ -238,10 +279,25 @@ def main_video_capture_helper(cap, realtime_graph=False):
     if cap is None:
         sys.exit("Завершение программы: видеофайл не найден или не удалось открыть.")
 
-    ret, frame = cap.read()
+    print("Нажмите 's', чтобы остановить видео и выбрать эталонные изображения.")
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            print("Не удалось захватить кадр.")
+            return
+        cv2.imshow("Select Frame", frame)
+
+        # Ожидание нажатия 's' для выбора эталонного кадра
+        if cv2.waitKey(1) & 0xFF == ord('s'):
+            cv2.destroyWindow("Select Frame")
+            break
+
     if ret:
         sticker1, sticker1_roi = select_sticker(frame)
+        cv2.destroyWindow("Select Sticker")
         sticker2, sticker2_roi = select_sticker(frame)
+        cv2.destroyWindow("Select Sticker")
         sticker1_gray = cv2.cvtColor(sticker1, cv2.COLOR_BGR2GRAY)
         sticker2_gray = cv2.cvtColor(sticker2, cv2.COLOR_BGR2GRAY)
         kp_template1, des_template1 = akaze.detectAndCompute(sticker1_gray, None)
@@ -256,9 +312,9 @@ def main_video_capture_helper(cap, realtime_graph=False):
     start_time = time.time()
 
     if realtime_graph:
-        fig, ax, line1, line2 = create_real_time_graph()
+        fig, ax, line1, line2 = create_realtime_graph()
         x_data, y1_data, y2_data = [], [], []
-        last_graph_update_time = start_time  # Время последнего обновления графика
+        last_graph_update_time = start_time
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -274,15 +330,13 @@ def main_video_capture_helper(cap, realtime_graph=False):
         data.append((current_time, smoothed_y1, smoothed_y2))
 
         if realtime_graph:
-            # Добавляем новые данные для графика
             x_data.append(current_time)
             y1_data.append(smoothed_y1)
             y2_data.append(smoothed_y2)
 
-            # Обновляем график раз в секунду
             if current_time - (last_graph_update_time - start_time) >= 1:
-                update_graph(fig, ax, line1, line2, x_data, y1_data, y2_data)
-                last_graph_update_time = current_time  # Обновляем время последнего обновления графика
+                update_realtime_graph(fig, ax, line1, line2, x_data, y1_data, y2_data)
+                last_graph_update_time = current_time
 
         cv2.imshow('Sticker Tracking', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -291,20 +345,25 @@ def main_video_capture_helper(cap, realtime_graph=False):
     cap.release()
     cv2.destroyAllWindows()
 
-    # Сохраняем данные в CSV и выводим финальный график
-    df = save_data(data, "tracking_data.csv")
+    df = save_data(data, "tracking_data.xlsx")
     create_graph(df)
 
 
 def main_video_capture(cap):
+    """
+    Функция для выбора программы без графика в реальном времени
+    """
     main_video_capture_helper(cap, realtime_graph=False)
 
 
 def main_video_capture_with_realtimegraph(cap):
+    """
+    Функция для выбора программы с графиком в реальном времени
+    """
     main_video_capture_helper(cap, realtime_graph=True)
 
 
 if __name__ == "__main__":
     videofile = "val.mp4"
     cap = open_videofile(videofile)
-    main_video_capture_with_realtimegraph(cap)
+    main_video_capture(cap)
