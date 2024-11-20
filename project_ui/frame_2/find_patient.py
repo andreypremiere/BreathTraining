@@ -104,7 +104,7 @@ class MainWindow(QWidget):
         # Add the right panel to the main layout
         layout_principal.addLayout(panel_derecho)
 
-        # --------- Button Panel with Icons (Right) ----------
+        # --------- Button Panel with icons (Right) ----------
         panel_botones = QVBoxLayout()
         panel_botones.setAlignment(Qt.AlignmentFlag.AlignCenter)
         panel_botones.setContentsMargins(10, 20, 20, 20)

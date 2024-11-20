@@ -9,6 +9,9 @@ app = Flask(__name__)
 
 app.register_blueprint(doctor_bp)
 
+app.config['JWT_SECRET_KEY'] = '1111'
+jwt = JWTManager(app)
+
 # Запуск сервера
 if __name__ == '__main__':
     app.run(debug=True)
