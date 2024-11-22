@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         
         # Button to start the procedure
         start_button = QPushButton("Начать процедуру")
+        start_button.clicked.connect(lambda x: print('кнопка нажата'))
 
         # Adding widgets to the control layout
         control_layout.addWidget(calibrate_button)

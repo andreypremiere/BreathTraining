@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QCheckBox,
 from PyQt6.QtGui import QFont
 from login_form.reguests_login import login_doctor
 
+
 class Login(QWidget):
     """
     Класс для окна входа.
@@ -14,7 +15,7 @@ class Login(QWidget):
     При успешной авторизации токен сохраняется, и происходит переход на другое окно.
     """
 
-    def __init__(self, jwt_provider, switch_window_callback):
+    def __init__(self, jwt_provider, switch_to_register, switch_to_work_window):
         """
         Инициализация окна входа.
 
@@ -22,11 +23,12 @@ class Login(QWidget):
         на окно регистрации. Также сохраняет переданный объект для работы с JWT токенами.
 
         :param jwt_provider: Объект для работы с JWT токенами.
-        :param switch_window_callback: Функция для переключения на окно регистрации.
+        :param switch_to_register: Функция для переключения на окно регистрации.
         """
         super().__init__()
-        self.switch_window = switch_window_callback  # Колбек для переключения на окно регистрации
+        self.switch_to_register = switch_to_register  # Колбек для переключения на окно регистрации
         self.jwt_provider = jwt_provider  # Объект для работы с JWT
+        self.switch_to_work_window = switch_to_work_window
         self.init_ui()
 
     def init_ui(self):
@@ -76,7 +78,7 @@ class Login(QWidget):
 
         # Кнопка регистрации
         register_button = QPushButton("Зарегистрироваться", self)
-        register_button.clicked.connect(self.switch_window)
+        register_button.clicked.connect(self.switch_to_register)
         layout.addWidget(register_button)
 
     def toggle_password_visibility(self):
@@ -106,6 +108,6 @@ class Login(QWidget):
         if result['error'] is None:
             print(f'Login successful: {result["body"]}')
             self.jwt_provider._token = result['body']
-            self.switch_window()  # Переключаем на другое окно
+            self.switch_to_work_window()  # Переключаем на другое окно
         else:
             print(result['error'])

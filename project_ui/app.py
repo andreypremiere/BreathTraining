@@ -3,6 +3,7 @@ from JWT_Provider.jwt_provider import JWTProvider
 from login_form.login import Login
 import sys
 from register_form.registration import Registration
+from work_window.work_window import WorkWindow
 
 
 class MainWindow(QWidget):
@@ -21,13 +22,14 @@ class MainWindow(QWidget):
         :param jwt: Объект для работы с JWT токенами.
         """
         super().__init__()
+        self.work_window = None
         self.registration_window = None  # Ссылка на окно регистрации
         self.login_window = None  # Ссылка на окно входа
         self.stacked_widget = None  # QStackedWidget для управления окнами
         self.jwt_provider = jwt  # Провайдер для работы с JWT
-        self.init_ui(self.jwt_provider)  # Инициализация UI с использованием jwt
+        self.init_ui()  # Инициализация UI с использованием jwt
 
-    def init_ui(self, jwt):
+    def init_ui(self):
         """Настройка пользовательского интерфейса приложения.
 
         Создает окно с двумя вкладками: одно для входа, другое для регистрации. Для этих окон используется
@@ -42,12 +44,14 @@ class MainWindow(QWidget):
         self.layout().addWidget(self.stacked_widget)
 
         # Создаем окна для входа и регистрации
-        self.login_window = Login(jwt, self.switch_to_registration)
-        self.registration_window = Registration(jwt, self.switch_to_login)
+        self.login_window = Login(self.jwt_provider, self.switch_to_registration, self.switch_to_work_window)
+        self.registration_window = Registration(self.jwt_provider, self.switch_to_login)
+        self.work_window = WorkWindow(self.jwt_provider)
 
         # Добавляем окна в QStackedWidget
         self.stacked_widget.addWidget(self.login_window)
         self.stacked_widget.addWidget(self.registration_window)
+        self.stacked_widget.addWidget(self.work_window)
 
         # Устанавливаем начальное окно (окно входа)
         self.stacked_widget.setCurrentWidget(self.login_window)
@@ -62,16 +66,19 @@ class MainWindow(QWidget):
         """
         self.stacked_widget.setCurrentWidget(self.login_window)
 
+    def switch_to_work_window(self):
+        self.stacked_widget.setCurrentWidget(self.work_window)
+
 
 if __name__ == "__main__":
     # Основной цикл приложения
     app = QApplication(sys.argv)
-    window = None
     jwt_provider = JWTProvider()  # Создаем провайдер для работы с JWT
+    window = WorkWindow(jwt_provider)
 
     # Проверяем наличие сохраненного токена
-    if jwt_provider.load_token() is None:
-        window = MainWindow(jwt_provider)
+    # if jwt_provider.load_token() is None:
+    #     window = MainWindow(jwt_provider)
 
     window.show()
     sys.exit(app.exec())
