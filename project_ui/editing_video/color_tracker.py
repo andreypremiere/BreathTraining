@@ -5,12 +5,13 @@ import numpy as np
 class ColorTracker:
     """Трекер для отслеживания точек на изображении."""
 
-    def __init__(self, x: int, y: int, max_area_change: float = 0.3):
+    def __init__(self, x: int, y: int, max_area_change: float = 0.6):
         """
         Инициализация ColorTracker.
 
         :param x: Координата X.
         :param y: Координата Y.
+        :param initial_area: Изначальное значение площади
         :param max_area_change: Максимально допустимое изменение площади.
         """
         self.x = x
@@ -39,17 +40,30 @@ class ColorTracker:
         dists = np.array(dists)
 
         if len(dists) > 0 and np.max(dists) > 0:
-            needed_contour = np.argmax(dists)
-            bbox = cv2.boundingRect(contours[needed_contour])
+            needed_contour = contours[np.argmax(dists)]
+            area = cv2.contourArea(needed_contour)
+
+            if self.initial_area is None:
+                self.initial_area = area
+
+            area_change = abs(area - self.initial_area) / self.initial_area
+            if area_change > self.max_area_change:
+                self.lost = True
+                self.x, self.y = None, None
+                return frame
+
+            bbox = cv2.boundingRect(needed_contour)
             self.x = bbox[0] + bbox[2] // 2
             self.y = bbox[1] + bbox[3] // 2
+            self.initial_area = area
 
-            frame = cv2.drawContours(frame, [contours[needed_contour]], -1, (0, 255, 0), 2)
+            frame = cv2.drawContours(frame, [needed_contour], -1, (0, 255, 0), 2)
             frame = cv2.circle(frame, (self.x, self.y), 10, (0, 0, 255), -1)
             self.lost = False
         else:
             self.x, self.y = None, None
             self.lost = True
+
         return frame
 
     @staticmethod

@@ -3,13 +3,14 @@ import cv2
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
-from color_tracker import ColorTracker
-from point_manager import PointManager
+from editing_video.color_tracker import ColorTracker
+from editing_video.point_manager import PointManager
+
 
 class VideoManager:
     """Управление видеопотоком и обработка кадров."""
 
-    def __init__(self, video_source: str, point_manager: PointManager):
+    def __init__(self, point_manager: PointManager, video_source: str = 0):
         """
         Инициализация VideoManager.
 
@@ -22,7 +23,8 @@ class VideoManager:
         self.data = pd.DataFrame(columns=["time_st", "mark_belly", "mark_breast"])
         print('Класс VideoManager инициализирован')
 
-    def _initialize_video(self, video_source: str) -> cv2.VideoCapture:
+
+    def _initialize_video(self, video_source: str = 0) -> cv2.VideoCapture:
         """
         Инициализация источника видео.
 
@@ -32,8 +34,8 @@ class VideoManager:
         capture = cv2.VideoCapture(video_source)
         if not capture.isOpened():
             raise ValueError("Ошибка: не удалось открыть видео!")
-        cv2.namedWindow("My Camera")
-        cv2.setMouseCallback("My Camera", self.point_manager.on_mouse)
+        # cv2.namedWindow("My Camera")
+        # cv2.setMouseCallback("My Camera", self.point_manager.on_mouse)
         return capture
 
     def main_loop(self) -> None:
@@ -57,15 +59,15 @@ class VideoManager:
             else:
                 self.point_manager.selected_mode = None
 
-            # Создаем трекеры для новых точек
+            # Создаем трекеры для новых точекvideo_path
             if len(self.point_manager.points) > 0:
                 if len(self.trackers) < len(self.point_manager.points):
                     for (x, y) in self.point_manager.points[len(self.trackers):]:
                         self.trackers.append(ColorTracker(x, y))
 
-            frame = self._process_frame(frame)
-            self.data = self._update_dataframe(self.data, self.trackers)
-            cv2.imshow("My Camera", frame)
+            frame = self.process_frame(frame)
+            self.data = self.update_dataframe(self.data, self.trackers)
+            # cv2.imshow("My Camera", frame)
 
     def get_dataframe(self) -> pd.DataFrame:
         """
@@ -75,7 +77,7 @@ class VideoManager:
         """
         return self.data
 
-    def _process_frame(self, frame: np.ndarray) -> np.ndarray:
+    def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """
         Обработка текущего кадра.
 
@@ -86,7 +88,7 @@ class VideoManager:
             frame = tracker.update_image(frame)
         return frame
 
-    def _update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
+    def update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
         """
         Обновление DataFrame с координатами точек.
 
