@@ -22,7 +22,7 @@ class VideoManager:
         self.trackers = {'belly': None, 'breast': None}  # Хранение трекеров
         self.points = {'belly': None, 'breast': None}    # Хранение координат
         self.data = pd.DataFrame(columns=["time_st", "mark_belly", "mark_breast"])
-        self.recording_paused = False  # Флаг остановки записи
+        self.recording_paused = True  # Флаг остановки записи
 
     def _initialize_video(self, video_source: str) -> cv2.VideoCapture:
         """
@@ -52,7 +52,9 @@ class VideoManager:
         if event == cv2.EVENT_LBUTTONUP:
             if self.point_manager.selected_mode in self.points and self.points[self.point_manager.selected_mode] is None:
                 self.points[self.point_manager.selected_mode] = (x, y)
-                print(f"Добавлена точка {self.point_manager.selected_mode}: ({x}, {y})")
+                self.trackers[self.point_manager.selected_mode] = ColorTracker(x, y)
+                print(f"Добавлена новая точка '{self.point_manager.selected_mode}': ({x}, {y})")
+                self.point_manager.selected_mode = None
 
     def main_loop(self) -> None:
         """
@@ -66,7 +68,6 @@ class VideoManager:
             if not success:
                 break
 
-                # Установка режима выбора точек
             if self.points['belly'] is None:
                 self.point_manager.point_belly()
             elif self.points['breast'] is None:
@@ -74,17 +75,40 @@ class VideoManager:
             else:
                 self.point_manager.selected_mode = None
 
+            if self.point_manager.selected_mode is not None:
+                print(f"Кликните на объект для выбора точки: {self.point_manager.selected_mode}")
+
             # Создание трекеров при наличии точек
             for key in self.points:
                 if self.points[key] is not None and self.trackers[key] is None:
                     self.trackers[key] = ColorTracker(*self.points[key])
 
-            # Обработка кадра
             frame = self._process_frame(frame)
+
             if not self.recording_paused:
                 self.data = self._update_dataframe(self.data, self.trackers)
 
+            #print(f"Текущий словарь точек: {self.points}")
+            #print(f"Текущий DataFrame:\n{self.data}")
+
             cv2.imshow("My Camera", frame)
+
+    def start_recording_dataframe(self) -> None:
+        """
+        Начать запись данных в DataFrame.
+        """
+        if self.recording_paused:
+            self.recording_paused = False
+            print("Флаг на запись данных в DataFrame.")
+
+    def stop_recording_dataframe(self) -> None:
+        """
+        Остановить запись данных в DataFrame.
+        """
+        if not self.recording_paused:
+            self.recording_paused = True
+            print("Флаг на остановку записи данных в DataFrame.")
+
 
     def get_dataframe(self) -> pd.DataFrame:
         """
@@ -101,13 +125,21 @@ class VideoManager:
         :param frame: Текущий кадр видео.
         :return: Обработанный кадр.
         """
-        self.recording_paused = False  # Сбрасываем флаг перед обработкой
+        self.recording_paused = False
         for key, tracker in self.trackers.items():
             if tracker is not None:
                 frame = tracker.update_image(frame)
                 if tracker.lost:
                     print(f"Объект '{key}' потерян. Запись приостановлена.")
+                    self.trackers[key] = None
+                    self.points[key] = None
+                    self.point_manager.selected_mode = key  # Устанавливаем режим выбора точки
                     self.recording_paused = True
+                else:
+                    self.points[key] = (tracker.x, tracker.y)
+
+            else:
+                self.recording_paused = True
         return frame
 
     def _update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
@@ -121,6 +153,11 @@ class VideoManager:
         current_time = datetime.now()
         y_points = {key: (tracker.y if tracker and not tracker.lost else None) for key, tracker in trackers.items()}
         new_row = {"time_st": current_time, "mark_belly": y_points['belly'], "mark_breast": y_points['breast']}
+
+        if any(value is None for value in y_points.values()):
+            #print("Данные не добавлены: одна или более точек потеряны")
+            return data
+        #print(f"Добавление строки в DataFrame: {new_row}")
         return pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
 
     def create_graph(self, dataframe: pd.DataFrame) -> None:
