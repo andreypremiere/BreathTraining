@@ -51,8 +51,10 @@ class ColorTracker:
 
         # Проверка площади
         current_area = cv2.contourArea(selected_contour)
-        if current_area < 200:
+        if current_area < 1000:
             print("Объект слишком мал. Игнорируем.")
+            self.lost = True
+            self.x, self.y = None, None
             return frame
 
         if self.initial_area is None:
@@ -71,6 +73,8 @@ class ColorTracker:
         aspect_ratio = bbox[2] / bbox[3] if bbox[3] != 0 else 0
         if aspect_ratio < 0.5 or aspect_ratio > 2:
             print("Контур слишком деформирован. Игнорируем.")
+            self.lost = True
+            self.x, self.y = None, None
             return frame
 
         # Проверка на смещение
@@ -90,7 +94,6 @@ class ColorTracker:
         # Отрисовка контура и точки
         frame = cv2.drawContours(frame, [selected_contour], -1, (0, 255, 0), 2)
         frame = cv2.circle(frame, (self.x, self.y), 10, (0, 0, 255), -1)
-
         return frame
 
     @staticmethod
