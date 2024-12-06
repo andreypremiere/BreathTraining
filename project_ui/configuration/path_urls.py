@@ -5,3 +5,4 @@ class Urls:
     """
     LOGIN_DOCTOR = f'{base_host}/doctor/login_doctor'
     REGISTER_DOCTOR = f'{base_host}/doctor/create_doctor'
+    CREATE_PATIENT = f'{base_host}/patient/create_patient'
