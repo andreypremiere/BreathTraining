@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from color_tracker import ColorTracker
 from point_manager import PointManager
 
+
 class VideoManager:
     """Управление видеопотоком и обработка кадров."""
 
@@ -20,6 +21,7 @@ class VideoManager:
         self.capture = self._initialize_video(video_source)
         self.trackers = []
         self.data = pd.DataFrame(columns=["time_st", "mark_belly", "mark_breast"])
+        self.points = []
 
     def _initialize_video(self, video_source: str) -> cv2.VideoCapture:
         """
@@ -32,8 +34,27 @@ class VideoManager:
         if not capture.isOpened():
             raise ValueError("Ошибка: не удалось открыть видео!")
         cv2.namedWindow("My Camera")
-        cv2.setMouseCallback("My Camera", self.point_manager.on_mouse)
+        cv2.setMouseCallback("My Camera", self.on_mouse)
         return capture
+
+    def on_mouse(self, event: int, x: int, y: int, flags: int, param) -> None:
+        """
+        Обработчик мыши для выбора точек и добавления их в VideoManager.
+
+        :param event: Тип события мыши.
+        :param x: Координата X.
+        :param y: Координата Y.
+        :param flags: Дополнительные параметры.
+        :param param: Пользовательский параметр.
+        :return: None
+        """
+        if event == cv2.EVENT_LBUTTONUP:
+            if len(self.points) >= 2:
+                print("Достигнуто максимальное количество точек (2).")
+                return
+
+            self.points.append((x, y))
+            print(f"Добавлена точка ({x}, {y}). Текущие точки: {self.points}")
 
     def main_loop(self) -> None:
         """
@@ -48,18 +69,18 @@ class VideoManager:
                 break
 
             # Обработка выбора точек
-            if len(self.point_manager.points) < 2:
-                if len(self.point_manager.points) == 0:
+            if len(self.points) < 2:
+                if len(self.points) == 0:
                     self.point_manager.point_belly()
-                elif len(self.point_manager.points) == 1:
+                elif len(self.points) == 1:
                     self.point_manager.point_breast()
             else:
                 self.point_manager.selected_mode = None
 
             # Создаем трекеры для новых точек
-            if len(self.point_manager.points) > 0:
-                if len(self.trackers) < len(self.point_manager.points):
-                    for (x, y) in self.point_manager.points[len(self.trackers):]:
+            if len(self.points) > 0:
+                if len(self.trackers) < len(self.points):
+                    for (x, y) in self.points[len(self.trackers):]:
                         self.trackers.append(ColorTracker(x, y))
 
             frame = self._process_frame(frame)
@@ -121,7 +142,6 @@ class VideoManager:
         plt.legend()
         plt.savefig('tracking_graph.png')
         plt.show()
-
 
     def end(self) -> None:
         """

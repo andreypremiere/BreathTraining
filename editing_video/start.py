@@ -25,5 +25,7 @@ def start_program(video_path: str) -> None:
 
 
 if __name__ == "__main__":
-    video_path = "val.mp4"
+    #video_path = "vid2.mp4"
+    #video_path = "vid.mp4"
+    video_path = 0
     start_program(video_path)

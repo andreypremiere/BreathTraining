@@ -4,7 +4,7 @@ import numpy as np
 class ColorTracker:
     """Трекер для отслеживания точек на изображении."""
 
-    def __init__(self, x: int, y: int, max_area_change: float = 0.6):
+    def __init__(self, x: int, y: int, max_area_change: float = 1):
         """
         Инициализация ColorTracker.
 
@@ -28,38 +28,68 @@ class ColorTracker:
         :return: Обновленный кадр.
         """
         self.edges = self.get_edges(frame)
-        contours, _ = cv2.findContours(self.edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        dists = []
 
-        for contour in contours:
-            dist = cv2.pointPolygonTest(contour, (self.x, self.y), True)
-            dists.append(dist)
-        dists = np.array(dists)
+        # Маска для ограничения области поиска
+        search_radius = 100
+        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+        if self.x is not None and self.y is not None:
+            cv2.circle(mask, (self.x, self.y), search_radius, 255, -1)
+        masked_edges = cv2.bitwise_and(self.edges, self.edges, mask=mask)
 
-        if len(dists) > 0 and np.max(dists) > 0:
-            needed_contour = contours[np.argmax(dists)]
-            area = cv2.contourArea(needed_contour)
+        # Поиск контуров
+        contours, _ = cv2.findContours(masked_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            print("Контуры не найдены. Объект потерян.")
+            self.lost = True
+            self.x, self.y = None, None
+            return frame
 
-            if self.initial_area is None:
-                self.initial_area = area
+        # Поиск ближайшего контура
+        dists = [cv2.pointPolygonTest(cnt, (self.x, self.y), True) for cnt in contours]
+        max_index = np.argmax(dists)
+        selected_contour = contours[max_index]
 
-            area_change = abs(area - self.initial_area) / self.initial_area
-            if area_change > self.max_area_change:
+        # Проверка площади
+        current_area = cv2.contourArea(selected_contour)
+        if current_area < 200:
+            print("Объект слишком мал. Игнорируем.")
+            return frame
+
+        if self.initial_area is None:
+            self.initial_area = current_area
+            print("Установлена начальная площадь объекта.")
+        else:
+            relative_change = abs(current_area - self.initial_area) / self.initial_area
+            if relative_change > self.max_area_change:
+                print(f"Изменение площади слишком велико ({relative_change:.2f}). Объект потерян.")
                 self.lost = True
                 self.x, self.y = None, None
                 return frame
 
-            bbox = cv2.boundingRect(needed_contour)
-            self.x = bbox[0] + bbox[2] // 2
-            self.y = bbox[1] + bbox[3] // 2
-            self.initial_area = area
+        # Проверка формы
+        bbox = cv2.boundingRect(selected_contour)
+        aspect_ratio = bbox[2] / bbox[3] if bbox[3] != 0 else 0
+        if aspect_ratio < 0.5 or aspect_ratio > 2:
+            print("Контур слишком деформирован. Игнорируем.")
+            return frame
 
-            frame = cv2.drawContours(frame, [needed_contour], -1, (0, 255, 0), 2)
-            frame = cv2.circle(frame, (self.x, self.y), 10, (0, 0, 255), -1)
-            self.lost = False
-        else:
-            self.x, self.y = None, None
-            self.lost = True
+        # Проверка на смещение
+        if self.x is not None and self.y is not None:
+            distance = np.sqrt((self.x - (bbox[0] + bbox[2] // 2)) ** 2 +
+                               (self.y - (bbox[1] + bbox[3] // 2)) ** 2)
+            if distance > search_radius:
+                print("Объект сместился слишком далеко. Потерян.")
+                self.lost = True
+                self.x, self.y = None, None
+                return frame
+
+        # Обновление координат
+        self.x = bbox[0] + bbox[2] // 2
+        self.y = bbox[1] + bbox[3] // 2
+
+        # Отрисовка контура и точки
+        frame = cv2.drawContours(frame, [selected_contour], -1, (0, 255, 0), 2)
+        frame = cv2.circle(frame, (self.x, self.y), 10, (0, 0, 255), -1)
 
         return frame
 
@@ -71,4 +101,5 @@ class ColorTracker:
         :param frame: Текущий кадр видео.
         :return: Границы кадра.
         """
-        return cv2.Canny(frame, 200, 200)
+
+        return cv2.Canny(frame, 150, 200)

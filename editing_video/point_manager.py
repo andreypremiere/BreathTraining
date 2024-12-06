@@ -6,24 +6,9 @@ class PointManager:
 
     def __init__(self):
         """
-                Инициализация PointManager.
-                """
+        Инициализация PointManager.
+        """
         self.selected_mode = None  # Режим работы ("belly" или "breast")
-        self.points = []
-
-    def on_mouse(self, event: int, x: int, y: int, flags: int, param) -> None:
-        """
-        Обработчик мыши для выбора точек.
-        :param event: Тип события мыши.
-        :param x: Координата X.
-        :param y: Координата Y.
-        :param flags: Дополнительные параметры.
-        :param param: Пользовательский параметр.
-        :return: None
-        """
-        if event == cv2.EVENT_LBUTTONUP and self.selected_mode is not None:
-            self.points.append((x, y))
-            self.selected_mode = None
 
     def point_belly(self) -> None:
         """Установить режим выбора точки для живота.
