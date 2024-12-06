@@ -121,6 +121,7 @@ class VideoProcessingThread(QThread):
         try:
             # Получаем данные
             data = self.video_manager.get_dataframe()
+            print(data)
 
             # Преобразуем time_st в UNIX timestamp
             # data['time_st'] = data['time_st'].astype('datetime64[ns]').view('int64') // 10 ** 9

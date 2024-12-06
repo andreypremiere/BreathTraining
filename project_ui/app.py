@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # Основной цикл приложения
     app = QApplication(sys.argv)
     jwt_provider = JWTProvider()  # Создаем провайдер для работы с JWT
-    window = MainWindow(jwt_provider)
+    window = WorkWindow(jwt_provider)
 
     # Проверяем наличие сохраненного токена
     # if jwt_provider.load_token() is None:
