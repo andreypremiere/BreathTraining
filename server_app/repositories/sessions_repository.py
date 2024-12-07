@@ -1,44 +1,44 @@
-from db_context import context_db
-from config import Config
 from db_context.context_db_async import get_db_conn, release_db_conn
 from datetime import datetime
+
 
 class SessionsRepository:
     def __init__(self):
         print('Репозиторий для сессий создан')
-        self.table_name = Config.TABLE_SESSIONS
+        self.table_name = 'sessions'  # Название таблицы
 
     def __del__(self):
         print('Репозиторий для сессий уничтожен')
 
-    async def create_sessions(self, session_data):
+    async def create_sessions(self, procedure_id, session_data):
         """
         Создает новые сессии в базе данных на основе данных.
+
+        :param procedure_id: UUID созданной процедуры
+        :param session_data: Словарь с данными для сессий
+        :return: True, если успешно, False в случае ошибки
         """
         conn = await get_db_conn()
-
-        doctor_id = session_data['doctor_id']
         patient_id = session_data['patient_id']
-        data = session_data['data']
+        data = session_data['data']  # временные ряды: [[timestamp, mark_belly, mark_breast], ...]
 
         query = f"""
-            INSERT INTO {self.table_name} (time, patient_id, part_of_body, value, procedure_id)
+            INSERT INTO {self.table_name} (time, patient_id, procedure_id, value_1, value_2)
             VALUES ($1, $2, $3, $4, $5);
         """
 
         try:
-            # Начинаем транзакцию
+            # начинаем транзакцию
             async with conn.transaction():
-                # Для каждого временного ряда в data
+                # проходим по каждому элементу в data
                 for item in data:
-                    timestamp_str = item[0]  # Временная метка в строковом формате
-                    timestamp = datetime.fromisoformat(timestamp_str)  # Преобразуем строку в datetime
-                    mark_belly = item[1]  # Значение по животу
-                    mark_breast = item[2]  # Значение по груди
+                    timestamp_str = item[0]  # временная метка в строковом формате
+                    timestamp = datetime.fromisoformat(timestamp_str)  # преобразуем строку в datetime
+                    mark_belly = item[1]  # значение по животу
+                    mark_breast = item[2]  # значение по груди
 
-                    # Сессии по области тела
-                    await conn.execute(query, timestamp, patient_id, 'belly', mark_belly, doctor_id)
-                    await conn.execute(query, timestamp, patient_id, 'breast', mark_breast, doctor_id)
+                    # выполняем вставку
+                    await conn.execute(query, timestamp, patient_id, procedure_id, mark_belly, mark_breast)
 
             print('Сессии успешно добавлены')
             return True
@@ -51,18 +51,24 @@ class SessionsRepository:
     async def get_sessions_by_patient_id(self, patient_id):
         """
         Получает все сессии для пациента по его ID.
+
+        :param patient_id: UUID пациента
+        :return: Список сессий или None, если ничего не найдено
         """
         conn = await get_db_conn()
 
         query = f"""
-            SELECT * FROM {self.table_name} WHERE patient_id = $1;
+            SELECT time, value_1 AS mark_belly, value_2 AS mark_breast
+            FROM {self.table_name}
+            WHERE patient_id = $1
+            ORDER BY time DESC;
         """
 
         try:
             result = await conn.fetch(query, patient_id)
             if result:
                 print(f"Сессии для пациента с ID {patient_id} найдены")
-                return result
+                return [dict(row) for row in result]
             else:
                 print(f"Сессии для пациента с ID {patient_id} не найдены")
                 return None
@@ -75,18 +81,24 @@ class SessionsRepository:
     async def get_sessions_by_procedure_id(self, procedure_id):
         """
         Получает все сессии по ID процедуры.
+
+        :param procedure_id: UUID процедуры
+        :return: Список сессий или None, если ничего не найдено
         """
         conn = await get_db_conn()
 
         query = f"""
-            SELECT * FROM {self.table_name} WHERE procedure_id = $1;
+            SELECT time, value_1 AS mark_belly, value_2 AS mark_breast
+            FROM {self.table_name}
+            WHERE procedure_id = $1
+            ORDER BY time DESC;
         """
 
         try:
             result = await conn.fetch(query, procedure_id)
             if result:
                 print(f"Сессии для процедуры с ID {procedure_id} найдены")
-                return result
+                return [dict(row) for row in result]
             else:
                 print(f"Сессии для процедуры с ID {procedure_id} не найдены")
                 return None

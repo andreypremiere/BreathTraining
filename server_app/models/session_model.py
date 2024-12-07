@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID, NUMERIC
 from config import Config
 
-# Инициализация SQLAlchemy
+# инициализация SQLAlchemy
 db = SQLAlchemy()
 
 class SessionModel:
@@ -19,12 +19,12 @@ class SessionModel:
 
 # SQLAlchemy модель для работы с таблицей sessions
 class Session(db.Model):
-    __tablename__ = 'sessions'  # Название таблицы в базе данных
+    __tablename__ = 'sessions'  # название таблицы в базе данных
 
-    time = db.Column(db.DateTime(timezone=True), primary_key=True, nullable=False)  # Временная метка
+    time = db.Column(db.DateTime(timezone=True), primary_key=True, nullable=False)  # временная метка
     patient_id = db.Column(UUID(as_uuid=True), db.ForeignKey('patients.patient_id', ondelete='CASCADE'), nullable=False)
-    part_of_body = db.Column(db.String, nullable=False)  # Часть тела
-    value = db.Column(NUMERIC(20, 10), nullable=False)  # Значение, с точностью до 10 знаков
+    part_of_body = db.Column(db.String, nullable=False)  # часть тела
+    value = db.Column(NUMERIC(20, 10), nullable=False)  # значение, с точностью до 10 знаков
     procedure_id = db.Column(UUID(as_uuid=True), db.ForeignKey('procedures.procedure_id', ondelete='CASCADE'), nullable=False)
 
     patient = db.relationship("Patient", backref="sessions", lazy=True)

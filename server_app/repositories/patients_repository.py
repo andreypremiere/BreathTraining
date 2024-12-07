@@ -30,14 +30,14 @@ class PatientRepository:
         conn = await get_db_conn()
         patient_data = patient.to_dict()
 
-        # Убираем поле patient_id, если оно есть, т.к. оно генерируется автоматически
+        # убираем поле patient_id, если оно есть, т.к. оно генерируется автоматически
         if 'patient_id' in patient_data:
             del patient_data['patient_id']
 
         query = f"""
-            INSERT INTO {self.table_name} (name, lastname, surname, hash_password, email, number_phone, 
+            INSERT INTO {self.table_name} (name, lastname, surname, email, number_phone, 
                                            birthdate, diagnosis, treatmentcard, is_active, gender)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
         """
 
         try:
@@ -94,13 +94,13 @@ class PatientRepository:
         """
         Обновляет данные пациента по patient_id, исключая поле is_active.
         """
-        # Убираем из данных поле is_active, если оно присутствует
+        # убираем из данных поле is_active, если оно присутствует
         if 'is_active' in updated_data:
             del updated_data['is_active']
 
         conn = await get_db_conn()
 
-        # Генерация SQL-запроса для обновления
+        # генерация SQL-запроса для обновления
         columns = ", ".join([f"{key} = ${i + 1}" for i, key in enumerate(updated_data.keys())])
         query = f"UPDATE {self.table_name} SET {columns} WHERE patient_id = ${len(updated_data) + 1};"
 

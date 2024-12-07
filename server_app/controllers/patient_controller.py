@@ -8,22 +8,22 @@ patient_service = PatientService()
 
 
 @patient_bp.route('/get_all', methods=['GET'])
-# @jwt_required()  # Если нужно добавить защиту маршрута с JWT
+# @jwt_required()  # если нужно добавить защиту маршрута с JWT
 async def get_all_patients():
     patients = await patient_service.get_all_patients()
     if not patients:
         return jsonify({'error': 'No patients found'}), 404
-    return jsonify(patients)  # Возвращаем JSON-ответ через Quart
+    return jsonify(patients)  # возвращаем JSON-ответ через Quart
 
 
 @patient_bp.route('/create_patient', methods=['POST'])
 async def create_patient_by_register():
     """
-    Метод для регистрации пациента в системе.
+    Метод для регистрации пациента в системе
 
-    :return: Если регистрация прошла успешно - код 200, если нет - ошибка.
+    :return: Если регистрация прошла успешно - код 200, если нет - ошибка
     """
-    data = await request.get_json()  # Получаем данные пациента
+    data = await request.get_json()  # получаем данные пациента
 
     result = await patient_service.create_patient(data)
 
@@ -47,7 +47,7 @@ async def delete_patient():
 
 @patient_bp.route('/login_patient', methods=['POST'])
 async def login_patient():
-    data = await request.get_json()  # Асинхронно получаем данные
+    data = await request.get_json()  # асинхронно получаем данные
 
     result = await patient_service.login_patient(data)
 

@@ -20,7 +20,7 @@ class ProcedureRepository:
 
         procedure_data = procedure.to_dict()
 
-        # Убираем поле procedure_id, если оно есть, так как оно генерируется автоматически
+        # убираем поле procedure_id, если оно есть, так как оно генерируется автоматически
         if 'procedure_id' in procedure_data:
             del procedure_data['procedure_id']
 

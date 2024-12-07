@@ -18,7 +18,7 @@ class ProcedureModel:
 
 # SQLAlchemy модель для работы с базой данных
 class Procedure(db.Model):
-    __tablename__ = 'procedures'  # Название таблицы в базе данных
+    __tablename__ = 'procedures'  # название таблицы в базе данных
 
     procedure_id = db.Column(UUID(as_uuid=True), primary_key=True, nullable=False)
     patient_id = db.Column(UUID(as_uuid=True), db.ForeignKey('patients.patient_id', ondelete='CASCADE'), nullable=False)
