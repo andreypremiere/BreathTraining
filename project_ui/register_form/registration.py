@@ -1,6 +1,8 @@
+import sys
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
-                             QGridLayout)
+                             QGridLayout, QApplication)
 from PyQt6.QtGui import QFont
 from register_form.confirm_repeated_password import confirm_password
 from register_form.requests_register import register_doctor
@@ -15,7 +17,7 @@ class Registration(QWidget):
     возврата к окну входа.
     """
 
-    def __init__(self, jwt_provider, switch_window_callback):
+    def __init__(self, jwt_provider=0, switch_window_callback=0):
         """
         Инициализация окна регистрации.
 
@@ -31,7 +33,7 @@ class Registration(QWidget):
         self.confirm_password_input = None  # Поле для подтверждения пароля
         self.email_input = None  # Поле для ввода электронной почты
         self.password_input = None  # Поле для ввода пароля
-        self.switch_window = switch_window_callback  # Колбек для переключения на окно входа
+        # self.switch_window = switch_window_callback  # Колбек для переключения на окно входа
         self.jwt_provider = jwt_provider  # Объект для работы с JWT
         self.init_ui()  # Инициализация пользовательского интерфейса
 
@@ -42,64 +44,113 @@ class Registration(QWidget):
         Создает заголовок, сетку для полей ввода электронной почты, пароля и подтверждения пароля,
         а также кнопки для регистрации и возврата к окну входа.
         """
+        self.setStyleSheet("""
+                    background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #D5F8FF, stop: 1 #9BE6FF);
+                """)
+
         layout = QVBoxLayout(self)  # Главный вертикальный макет
+        layout.setContentsMargins(20, 20, 20, 20)
 
         # Заголовок
         header_label = QLabel("Регистрация", self)
         header_label.setFont(QFont("Arial", 16))  # Установка шрифта для заголовка
+        header_label.setStyleSheet("background-color: none;"
+                                   "margin: 20px;")
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Центрирование заголовка
         layout.addWidget(header_label)
 
-        # Сетка для полей ввода
-        form_layout = QGridLayout()  # Сетка для размещения полей ввода
+        # Сетка для размещения полей ввода
+        form_layout = QVBoxLayout()
 
-        name_label = QLabel("Имя:", self)
-        name_label.setFont(QFont("Arial", 10))  # Установка шрифта для метки
-        self.name_input = QLineEdit(self)  # Поле для ввода имени
-        form_layout.addWidget(name_label, 0, 0)
-        form_layout.addWidget(self.name_input, 0, 1)
+        # Поле для ввода имени с плейсхолдером
+        self.name_input = QLineEdit(self)
+        self.name_input.setPlaceholderText("Введите имя")  # Устанавливаем плейсхолдер
+        self.name_input.setFont(QFont("Arial", 10))  # Устанавливаем шрифт
+        self.name_input.setStyleSheet("background-color: #FBFBFB;"
+                                      "border-radius: 6px;"
+                                      "border-style: none;")
+        self.name_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
+        form_layout.addWidget(self.name_input)  # Объединяем столбцы
 
-        # Метка и поле для ввода фамилии
-        lastname_label = QLabel("Фамилия:", self)  # Исправлено с "Элек. почта" на "Фамилия"
-        lastname_label.setFont(QFont("Arial", 10))  # Установка шрифта для метки
-        self.lastname_input = QLineEdit(self)  # Поле для ввода фамилии
-        form_layout.addWidget(lastname_label, 1, 0)  # Индекс строки изменен на 1
-        form_layout.addWidget(self.lastname_input, 1, 1)  # Индекс строки изменен на 1
+        # Поле для ввода фамилии с плейсхолдером
+        self.lastname_input = QLineEdit(self)
+        self.lastname_input.setPlaceholderText("Введите фамилию")
+        self.lastname_input.setFont(QFont("Arial", 10))
+        self.lastname_input.setStyleSheet("background-color: #FBFBFB;"
+                                          "border-radius: 6px;"
+                                          "border-style: none;")
+        self.lastname_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
+        form_layout.addWidget(self.lastname_input)
 
-        # Метка и поле для ввода электронной почты
-        email_label = QLabel("Элек. почта:", self)
-        email_label.setFont(QFont("Arial", 10))  # Установка шрифта для метки
-        self.email_input = QLineEdit(self)  # Поле для ввода электронной почты
-        form_layout.addWidget(email_label, 2, 0)  # Индекс строки изменен на 2
-        form_layout.addWidget(self.email_input, 2, 1)  # Индекс строки изменен на 2
+        # Поле для ввода электронной почты с плейсхолдером
+        self.email_input = QLineEdit(self)
+        self.email_input.setPlaceholderText("Введите электронную почту")
+        self.email_input.setFont(QFont("Arial", 10))
+        self.email_input.setStyleSheet("background-color: #FBFBFB;"
+                                       "border-radius: 6px;"
+                                       "border-style: none;")
+        self.email_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
+        form_layout.addWidget(self.email_input)
 
-        # Метка и поле для ввода пароля
-        password_label = QLabel("Пароль:", self)
-        password_label.setFont(QFont("Arial", 10))  # Установка шрифта для метки
-        self.password_input = QLineEdit(self)  # Поле для ввода пароля
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Прячем пароль
-        form_layout.addWidget(password_label, 3, 0)  # Индекс строки изменен на 3
-        form_layout.addWidget(self.password_input, 3, 1)  # Индекс строки изменен на 3
+        # Поле для ввода пароля с плейсхолдером
+        self.password_input = QLineEdit(self)
+        self.password_input.setPlaceholderText("Введите пароль")
+        self.password_input.setFont(QFont("Arial", 10))
+        self.password_input.setStyleSheet("background-color: #FBFBFB;"
+                                          "border-radius: 6px;"
+                                          "border-style: none;")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
+        form_layout.addWidget(self.password_input)
 
-        # Метка и поле для подтверждения пароля
-        confirm_password_label = QLabel("Подтверждение пароля:", self)
-        confirm_password_label.setFont(QFont("Arial", 10))
+        # Поле для подтверждения пароля с плейсхолдером
         self.confirm_password_input = QLineEdit(self)
+        self.confirm_password_input.setPlaceholderText("Подтвердите пароль")
+        self.confirm_password_input.setFont(QFont("Arial", 10))
+        self.confirm_password_input.setStyleSheet("background-color: #FBFBFB;"
+                                                  "border-radius: 6px;"
+                                                  "border-style: none;")
         self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        form_layout.addWidget(confirm_password_label, 4, 0)  # Индекс строки изменен на 4
-        form_layout.addWidget(self.confirm_password_input, 4, 1)  # Индекс строки изменен на 4
+        self.confirm_password_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
+        form_layout.addWidget(self.confirm_password_input)
 
         layout.addLayout(form_layout)
 
+        layout.addSpacing(10)
         # Кнопка регистрации
         register_button = QPushButton("Зарегистрироваться", self)
+        register_button.setStyleSheet("background-color: #00B4D8;"
+                                      "border-radius: 6px;"
+                                      "border-style: none;")
+        register_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00B4D8;
+                border-radius: 6px;
+                border-style: none;
+            }
+            QPushButton:pressed {
+                background-color: #009AB9;  /* Цвет при нажатии */
+            }
+        """)
+        register_button.setFixedSize(200, 28)
+        register_button.setCursor(Qt.CursorShape.PointingHandCursor)
         register_button.clicked.connect(self.handle_register)
-        layout.addWidget(register_button)
+        layout.addWidget(register_button, alignment=Qt.AlignmentFlag.AlignHCenter)
+        layout.addSpacing(10)
 
-        # Кнопка для возврата к окну входа
-        back_button = QPushButton("Назад", self)
-        back_button.clicked.connect(self.switch_window)
-        layout.addWidget(back_button)
+        back_label = QLabel('Уже есть аккаунт? <a style="color: black; text-decoration: underline;" href="#">Войти</a>',
+                            self)
+        back_label.setStyleSheet("background-color: none;")
+        back_label.setFont(QFont("Arial", 10))
+        back_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        back_label.setOpenExternalLinks(False)
+        back_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        back_label.linkActivated.connect(self.switch_window)
+        layout.addWidget(back_label)
+
+        self.adjustSize()
+
+        self.setFixedSize(self.size())
 
     def handle_register(self):
         name = self.name_input.text()
@@ -117,7 +168,15 @@ class Registration(QWidget):
 
         if result['error'] is None:
             print('Пользователь успешно создан')
-            self.switch_window()  # Переключаем на другое окно
+            # self.switch_window()  # Переключаем на другое окно
         else:
             print(result['error'])
 
+    def switch_window(self):
+        print('switch')
+
+
+app = QApplication(sys.argv)
+ventana = Registration()
+ventana.show()
+sys.exit(app.exec())
