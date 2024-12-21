@@ -57,21 +57,6 @@ class SearchPatient(QWidget):
         self.left_panel_layout.addSpacing(10)
         self.left_panel_layout.addWidget(menu_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # self.button1 = QPushButton("Скрыть", self)
-        # self.button1.clicked.connect(self.hide_panel)
-        # self.button1.setStyleSheet("""
-        #     QPushButton {
-        #         background-color: #009AB9;
-        #         color: white;
-        #         border-radius: 6px;
-        #         padding: 10px;
-        #     }
-        #     QPushButton:pressed {
-        #         background-color: #007A94;
-        #     }
-        # """)
-        # self.left_panel_layout.addWidget(self.button1)
-
         self.button2 = QPushButton("Скрыть", self)
         self.button2.setStyleSheet("""
             QPushButton {
