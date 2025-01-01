@@ -56,42 +56,42 @@ class VideoManager:
                 print(f"Добавлена новая точка '{self.point_manager.selected_mode}': ({x}, {y})")
                 self.point_manager.selected_mode = None
 
-    def main_loop(self) -> None:
-        """
-        Главный цикл обработки видео.
-
-        :return: None
-        """
-        success, frame = self.capture.read()
-        while success and cv2.waitKey(1) == -1:
-            success, frame = self.capture.read()
-            if not success:
-                break
-
-            if self.points['belly'] is None:
-                self.point_manager.point_belly()
-            elif self.points['breast'] is None:
-                self.point_manager.point_breast()
-            else:
-                self.point_manager.selected_mode = None
-
-            if self.point_manager.selected_mode is not None:
-                print(f"Кликните на объект для выбора точки: {self.point_manager.selected_mode}")
-
-            # Создание трекеров при наличии точек
-            for key in self.points:
-                if self.points[key] is not None and self.trackers[key] is None:
-                    self.trackers[key] = ColorTracker(*self.points[key])
-
-            frame = self._process_frame(frame)
-
-            if not self.recording_paused:
-                self.data = self._update_dataframe(self.data, self.trackers)
-
-            #print(f"Текущий словарь точек: {self.points}")
-            #print(f"Текущий DataFrame:\n{self.data}")
-
-            cv2.imshow("My Camera", frame)
+    # def main_loop(self) -> None:
+    #     """
+    #     Главный цикл обработки видео.
+    #
+    #     :return: None
+    #     """
+    #     success, frame = self.capture.read()
+    #     while success and cv2.waitKey(1) == -1:
+    #         success, frame = self.capture.read()
+    #         if not success:
+    #             break
+    #
+    #         if self.points['belly'] is None:
+    #             self.point_manager.point_belly()
+    #         elif self.points['breast'] is None:
+    #             self.point_manager.point_breast()
+    #         else:
+    #             self.point_manager.selected_mode = None
+    #
+    #         if self.point_manager.selected_mode is not None:
+    #             print(f"Кликните на объект для выбора точки: {self.point_manager.selected_mode}")
+    #
+    #         # Создание трекеров при наличии точек
+    #         for key in self.points:
+    #             if self.points[key] is not None and self.trackers[key] is None:
+    #                 self.trackers[key] = ColorTracker(*self.points[key])
+    #
+    #         frame = self._process_frame(frame)
+    #
+    #         if not self.recording_paused:
+    #             self.data = self._update_dataframe(self.data, self.trackers)
+    #
+    #         #print(f"Текущий словарь точек: {self.points}")
+    #         #print(f"Текущий DataFrame:\n{self.data}")
+    #
+    #         cv2.imshow("My Camera", frame)
 
     def start_recording_dataframe(self) -> None:
         """
@@ -118,7 +118,7 @@ class VideoManager:
         """
         return self.data
 
-    def _process_frame(self, frame: np.ndarray) -> np.ndarray:
+    def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """
         Обработка текущего кадра.
 
@@ -142,7 +142,7 @@ class VideoManager:
                 self.recording_paused = True
         return frame
 
-    def _update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
+    def update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
         """
         Обновление DataFrame с координатами точек.
 

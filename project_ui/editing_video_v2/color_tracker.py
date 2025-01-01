@@ -30,7 +30,7 @@ class ColorTracker:
         self.edges = self.get_edges(frame)
 
         # Маска для ограничения области поиска
-        search_radius = 100
+        search_radius = 200
         mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         if self.x is not None and self.y is not None:
             cv2.circle(mask, (self.x, self.y), search_radius, 255, -1)
