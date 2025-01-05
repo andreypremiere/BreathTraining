@@ -2,23 +2,32 @@ import sys
 import time
 
 import cv2
+import pandas as pd
 from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QIcon, QFont, QColor, QMouseEvent
 from PyQt6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QPushButton, \
-    QGraphicsDropShadowEffect, QSizePolicy, QScrollArea
+    QGraphicsDropShadowEffect, QSizePolicy, QScrollArea, QMessageBox
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCursor
 
+from editing_video_v2.color_tracker import ColorTracker
+from editing_video_v2.point_manager import PointManager
+from editing_video_v2.video_manager import VideoManager
 from work_windows_correct.panel_choosing_marks import PanelChoosingMarks
+from work_windows_correct.real_time_graph import RealTimeGraph
 from work_windows_correct.timer_frame import CountdownTimer
 
 
 class VideoLabel(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.panel_choosing_marks = None
+        self.video_manager = None
+        self.actual_coordinates = None
         # self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # self.setStyleSheet("border: 1px solid black;")
+        self.label_widget = None
 
         # self.setPixmap(QPixmap())
 
@@ -31,7 +40,22 @@ class VideoLabel(QLabel):
         # Вычисление относительных координат (для изображения)
         relative_x = label_x / self.width()
         relative_y = label_y / self.height()
-        print(f"Относительные координаты на изображении: x={relative_x:.2f}, y={relative_y:.2f}")
+
+        x = int(relative_x * self.actual_coordinates[0])
+        y = int(relative_y * self.actual_coordinates[1])
+        print(f'Точки для настоящего кадра: x:{x}, y: {y}')
+
+        # print(self.video_manager.point_manager.selected_mode)
+
+        if self.panel_choosing_marks is not None:
+            if self.video_manager.point_manager.selected_mode in self.video_manager.points \
+                    and self.video_manager.points[self.video_manager.point_manager.selected_mode] is None:
+                self.video_manager.points[self.video_manager.point_manager.selected_mode] = (x, y)
+                self.video_manager.trackers[self.video_manager.point_manager.selected_mode] = ColorTracker(x, y)
+                print(f"Добавлена новая точка '{self.video_manager.point_manager.selected_mode}': (x: {x}, y: {y})")
+                self.panel_choosing_marks.change_mark()
+
+        # print(f"Относительные координаты на изображении: x={relative_x:.2f}, y={relative_y:.2f}")
 
         super().mousePressEvent(event)
 
@@ -39,10 +63,17 @@ class WorkWindow(QWidget):
     def __init__(self, switch_window_callback=None):
         super().__init__()
 
+        self.widget_graph = None
+        self.current_index = 0
+        self.current_seconds = 0
+        self.timer_dataframe = None
+        self.video_manager = None
         self.width_video_label = 480
         self.height_video_label = 360
         self.capture = None
         self.timer_video = None
+        self.point_manager = PointManager()
+        self.video_manager = VideoManager(self.point_manager)
         self.init_ui()
 
     def init_ui(self):
@@ -52,11 +83,11 @@ class WorkWindow(QWidget):
 
         # главные слои
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(16, 16, 16, 16)
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         main_frame = QFrame(parent=self)
         self.main_layout = QVBoxLayout(main_frame)
-        self.main_layout.setSpacing(30)
+        self.main_layout.setSpacing(14)
         main_frame.setMaximumWidth(900)
         main_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         # main_frame.setStyleSheet('background-color: red;')
@@ -88,7 +119,7 @@ class WorkWindow(QWidget):
         self.managing_procedure_layout = QHBoxLayout(self.managing_procedure_frame)
         self.managing_procedure_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
-        self.video_label = VideoLabel(parent=main_frame)
+        self.video_label = VideoLabel(parent=self)
         # self.video_label = QLabel()
         self.video_label.setGraphicsEffect(self.frame_shadow(self.video_label))
         # self.video_label.setStyleSheet('background-color: red;')
@@ -187,16 +218,16 @@ class WorkWindow(QWidget):
 
         mark_breast_label = QLabel('Метка груди:', choosing_mark_frame)
         mark_belly_label = QLabel('Метка живота:', choosing_mark_frame)
-        value_breast_label = QLabel('Не выбрана', choosing_mark_frame)
-        value_belly_label = QLabel('Не выбрана', choosing_mark_frame)
+        self.value_breast_label = QLabel('Не выбрана', choosing_mark_frame)
+        self.value_belly_label = QLabel('Не выбрана', choosing_mark_frame)
 
         coordinate_breast_layout.addWidget(mark_breast_label)
         coordinate_breast_layout.addStretch()
-        coordinate_breast_layout.addWidget(value_breast_label)
+        coordinate_breast_layout.addWidget(self.value_breast_label)
 
         coordinate_belly_layout.addWidget(mark_belly_label)
         coordinate_belly_layout.addStretch()
-        coordinate_belly_layout.addWidget(value_belly_label)
+        coordinate_belly_layout.addWidget(self.value_belly_label)
 
         coordinates_vertical_layout.addLayout(coordinate_breast_layout)
         coordinates_vertical_layout.addLayout(coordinate_belly_layout)
@@ -207,7 +238,9 @@ class WorkWindow(QWidget):
         right_block_layout.addWidget(choosing_mark_frame, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # таймер
-        countdown_timer = CountdownTimer()
+        countdown_timer = CountdownTimer(video_manager=self.video_manager,
+                                         start_callback=self.start_graph,
+                                         stop_callback=self.stop_graph)
         right_block_layout.addWidget(countdown_timer, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Инструкция
@@ -307,10 +340,13 @@ class WorkWindow(QWidget):
 
         # таймер для видео
         self.capture = cv2.VideoCapture(0)  # Укажите путь к вашему видео
+        self.video_label.video_manager = self.video_manager
 
         self.timer_video = QTimer(self)
+        self.timer_dataframe = QTimer(self)
         self.timer_video.timeout.connect(self.update_frame)
-        self.timer_video.start(30)
+        self.timer_dataframe.timeout.connect(self.update_dataframe)
+        self.timer_video.start(25)
 
     def perform_calibration(self):
         self.calibration_button.setEnabled(False)
@@ -324,12 +360,14 @@ class WorkWindow(QWidget):
         self.height_video_label = 480
         self.video_label.setFixedSize(self.width_video_label, self.height_video_label)
         # self.scroll_instruction.hide()
-        self.managing_marks = PanelChoosingMarks()
+        self.managing_marks = PanelChoosingMarks(video_manager=self.video_manager,
+                                                 callback_button_back=self.restore_interface)
+        self.video_label.panel_choosing_marks = self.managing_marks
         self.main_layout.addWidget(self.managing_marks, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.main_layout.addWidget(self.video_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
 
-        QTimer.singleShot(8000, self.restore_interface)
+        # QTimer.singleShot(8000, self.restore_interface)
 
     def restore_interface(self):
         # Возвращаем элементы в исходное состояние
@@ -337,15 +375,53 @@ class WorkWindow(QWidget):
         self.managing_procedure_frame.setVisible(True)
 
         self.video_label.setFixedSize(480, 360)  # Исходный размер видео
+        self.width_video_label = 480
+        self.height_video_label = 360
         if self.managing_marks:
             self.main_layout.removeWidget(self.managing_marks)
             self.managing_marks.setParent(None)  # Отсоединяем от родителя
             self.managing_marks = None
+        self.video_label.panel_choosing_marks = None
         self.main_layout.removeWidget(self.video_label)
         self.managing_procedure_layout.insertWidget(0, self.video_label)
 
-    def show_widget(self, widget):
-        widget.show()
+    def start_graph(self):
+        # self.main_layout.removeWidget(self.scroll_instruction)
+        self.scroll_instruction.hide()
+        self.widget_graph = self.widget_graph if self.widget_graph else RealTimeGraph(data=self.video_manager.data)
+        self.main_layout.addWidget(self.widget_graph, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.timer_dataframe.start(200)
+
+    def update_dataframe(self):
+        timestamp = self.convert_to_hmsms(self.current_seconds)
+        self.video_manager.update_dataframe(timestamp, self.current_index)
+        self.widget_graph.update_graph()
+        print('запись')
+        self.current_seconds += 0.2
+        self.current_index += 1
+
+    def stop_graph(self):
+        # self.main_layout.addWidget(self.scroll_instruction)
+        self.timer_dataframe.stop()
+        self.main_layout.removeWidget(self.widget_graph)
+        self.widget_graph.hide()
+        self.scroll_instruction.show()
+
+    def convert_to_hmsms(self, total_seconds):
+        # Получаем количество целых часов
+        hours = total_seconds // 3600
+        remaining_seconds = total_seconds % 3600
+
+        # Получаем количество минут
+        minutes = remaining_seconds // 60
+        seconds = remaining_seconds % 60
+
+        # Получаем количество миллисекунд
+        milliseconds = (seconds - int(seconds)) * 1000
+        seconds = int(seconds)
+
+        # Форматируем результат
+        return f"{int(hours):02}:{int(minutes):02}:{seconds:02}:{int(milliseconds):03}"
 
     def update_frame(self):
         if not self.capture.isOpened():
@@ -359,6 +435,47 @@ class WorkWindow(QWidget):
             return
 
         # print(f"Размер кадра: {frame.shape}")
+
+        height, width, channels = frame.shape
+        self.video_label.actual_coordinates = (width, height)
+        # print(self.video_label.actual_coordinates)
+
+        # if self.video_manager.points['belly'] is None:
+        #     self.video_manager.point_manager.point_belly()
+        # elif self.video_manager.points['breast'] is None:
+        #     self.video_manager.point_manager.point_breast()
+        # else:
+        #     self.video_manager.point_manager.selected_mode = None
+
+        # if self.video_manager.point_manager.selected_mode is not None:
+        #     print(f"Кликните на объект для выбора точки: {self.video_manager.point_manager.selected_mode}")
+
+        # Создание трекеров при наличии точек
+        for key in self.video_manager.points:
+            if self.video_manager.points[key] is not None and self.video_manager.trackers[key] is None:
+                self.video_manager.trackers[key] = ColorTracker(*self.video_manager.points[key])
+
+        belly = self.video_manager.points.get("belly")
+        breast = self.video_manager.points.get("breast")
+
+        if isinstance(belly, (list, tuple)):
+            # print(f'belly y: {belly[1]}')
+            self.value_belly_label.setText(str(belly[1]))
+        else:
+            self.value_belly_label.setText('Не установлена')
+
+
+        if isinstance(breast, (list, tuple)):
+            # print(f'breast y: {breast[1]}')
+            self.value_breast_label.setText(str(breast[1]))
+        else:
+            self.value_breast_label.setText('Не установлена')
+
+        frame = self.video_manager.process_frame(frame)
+
+        # if self.video_manager.recording:
+        #     self.video_manager.data = self.video_manager.update_dataframe(self.video_manager.data, self.video_manager.trackers)
+
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = self.resize_frame_to_label(frame)
         # print(f"Размер кадра после масштабирования: {frame.shape}")
@@ -369,10 +486,12 @@ class WorkWindow(QWidget):
         self.video_label.setPixmap(pixmap)
         # print("Кадр успешно отображён.")
 
+
     def resize_frame_to_label(self, frame):
         """Масштабирует кадр под размер QLabel."""
         resized_image = cv2.resize(frame, (self.width_video_label, self.height_video_label), interpolation=cv2.INTER_AREA)
-        return cv2.flip(resized_image, 1)
+        # return cv2.flip(resized_image, 1)
+        return resized_image
 
     def frame_shadow(self, parent, radius=20, opacity=64):
         shadow = QGraphicsDropShadowEffect(parent=parent)
@@ -382,6 +501,12 @@ class WorkWindow(QWidget):
         return shadow
 
     def closeEvent(self, event):
+        # df = self.video_manager.get_dataframe()
+        # df.to_csv('output.csv', index=False)
+
+        for i, z in self.video_manager.data.items():
+            print(i, z)
+
         if self.capture and self.capture.isOpened():
             self.capture.release()
         event.accept()

@@ -3,26 +3,27 @@ import cv2
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
-from color_tracker import ColorTracker
-from point_manager import PointManager
+from editing_video_v2.color_tracker import ColorTracker
+from editing_video_v2.point_manager import PointManager
 
 
 class VideoManager:
     """Управление видеопотоком и обработка кадров."""
 
-    def __init__(self, video_source: str, point_manager: PointManager):
+    def __init__(self, point_manager: PointManager):
         """
         Инициализация VideoManager.
 
         :param video_source: Путь к видеофайлу.
         :param point_manager: Экземпляр PointManager для управления точками.
         """
+        self.recording = False
         self.point_manager = point_manager
-        self.capture = self._initialize_video(video_source)
+        # self.capture = self._initialize_video(video_source)
         self.trackers = {'belly': None, 'breast': None}  # Хранение трекеров
         self.points = {'belly': None, 'breast': None}    # Хранение координат
-        self.data = pd.DataFrame(columns=["time_st", "mark_belly", "mark_breast"])
-        self.recording_paused = True  # Флаг остановки записи
+        self.data = {'indexes': [], 'timestamp': [], 'belly': [],
+                     'breast': [], 'timestamp_start': None}
 
     def _initialize_video(self, video_source: str) -> cv2.VideoCapture:
         """
@@ -85,7 +86,7 @@ class VideoManager:
     #
     #         frame = self._process_frame(frame)
     #
-    #         if not self.recording_paused:
+    #         if self.recording:
     #             self.data = self._update_dataframe(self.data, self.trackers)
     #
     #         #print(f"Текущий словарь точек: {self.points}")
@@ -97,26 +98,26 @@ class VideoManager:
         """
         Начать запись данных в DataFrame.
         """
-        if self.recording_paused:
-            self.recording_paused = False
+        if not self.recording:
+            self.recording = True
             print("Флаг на запись данных в DataFrame.")
 
     def stop_recording_dataframe(self) -> None:
         """
         Остановить запись данных в DataFrame.
         """
-        if not self.recording_paused:
-            self.recording_paused = True
+        if self.recording:
+            self.recording = False
             print("Флаг на остановку записи данных в DataFrame.")
 
 
-    def get_dataframe(self) -> pd.DataFrame:
+    def get_dataframe(self):
         """
         Возвращает временной ряд отслеживания двух точек.
 
         :return: DataFrame с временными рядами.
         """
-        return self.data
+        return pd.DataFrame(self.data)
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """
@@ -125,7 +126,7 @@ class VideoManager:
         :param frame: Текущий кадр видео.
         :return: Обработанный кадр.
         """
-        self.recording_paused = False
+        # self.recording = True
         for key, tracker in self.trackers.items():
             if tracker is not None:
                 frame = tracker.update_image(frame)
@@ -134,15 +135,15 @@ class VideoManager:
                     self.trackers[key] = None
                     self.points[key] = None
                     self.point_manager.selected_mode = key  # Устанавливаем режим выбора точки
-                    self.recording_paused = True
+                    self.recording = False
                 else:
                     self.points[key] = (tracker.x, tracker.y)
 
             else:
-                self.recording_paused = True
+                self.recording = False
         return frame
 
-    def update_dataframe(self, data: pd.DataFrame, trackers: list) -> pd.DataFrame:
+    def update_dataframe(self, current_time, current_index):
         """
         Обновление DataFrame с координатами точек.
 
@@ -150,37 +151,16 @@ class VideoManager:
         :param trackers: Список трекеров.
         :return: Обновленный DataFrame.
         """
-        current_time = datetime.now()
-        y_points = {key: (tracker.y if tracker and not tracker.lost else None) for key, tracker in trackers.items()}
-        new_row = {"time_st": current_time, "mark_belly": y_points['belly'], "mark_breast": y_points['breast']}
+        if not self.data['timestamp_start']:
+            self.data['timestamp_start'] = datetime.now()
 
-        if any(value is None for value in y_points.values()):
-            #print("Данные не добавлены: одна или более точек потеряны")
-            return data
-        #print(f"Добавление строки в DataFrame: {new_row}")
-        return pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+        y_points = {key: (tracker.y if tracker and not tracker.lost else None) for key, tracker in self.trackers.items()}
 
-    def create_graph(self, dataframe: pd.DataFrame) -> None:
-        """
-        Построение и сохранение графика на основе данных.
+        self.data['indexes'].append(current_index)
+        self.data['timestamp'].append(current_time)
+        self.data['belly'].append(y_points['belly'])
+        self.data['breast'].append(y_points['breast'])
 
-        :param dataframe: DataFrame с данными.
-        :return: None
-        """
-        if dataframe is None:
-            print("Нет данных для построения графика.")
-            return
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(dataframe['time_st'], dataframe['mark_belly'], color='red', label='Sticker 1')
-        plt.plot(dataframe['time_st'], dataframe['mark_breast'], color='blue', label='Sticker 2')
-        plt.title('Object Tracking')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Coordinate Y')
-        plt.grid()
-        plt.legend()
-        plt.savefig('tracking_graph.png')
-        plt.show()
 
     def end(self) -> None:
         """

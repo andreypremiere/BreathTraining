@@ -1,12 +1,29 @@
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSpinBox, QSizePolicy, QGraphicsDropShadowEffect
+    QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSpinBox, QSizePolicy, QGraphicsDropShadowEffect, QMessageBox
 )
 from PyQt6.QtCore import QTimer, Qt
 
 
+def show_info_message(text):
+    # Создание и настройка информационного окна
+    message_box = QMessageBox()
+    message_box.setWindowTitle("Информация")
+    message_box.setText(text)
+    message_box.setIcon(QMessageBox.Icon.Information)
+    message_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+    # Показ окна
+    message_box.exec()
+
+
 class CountdownTimer(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, video_manager=None,
+                 start_callback=None, stop_callback=None):
+        self.video_manager = video_manager
+        self.start_callback = start_callback
+        self.stop_callback = stop_callback
+
         super().__init__(parent)
 
         # self.setStyleSheet("background-color: none; border-radius: 8px;")
@@ -108,14 +125,26 @@ class CountdownTimer(QFrame):
                 + self.minutes_spinbox.value() * 60
                 + self.seconds_spinbox.value()
             )
-        if self.remaining_time > 0:  # Запускаем только если есть время
+
+        belly = self.video_manager.points.get("belly")
+        breast = self.video_manager.points.get("breast")
+
+        if self.remaining_time > 0 and belly and breast:  # Запускаем только если есть время
+            self.video_manager.recording = True
             self.timer.start(1000)
+            self.start_callback()
+        else:
+            show_info_message('Не установлена одна или несколько меток.')
+
 
     def pause_timer(self):
         self.timer.stop()
+        self.video_manager.recording = False
+        self.stop_callback()
 
     def reset_timer(self):
         self.timer.stop()
+        self.stop_callback()
         self.remaining_time = 0
         self.update_time_label()
         self.hours_spinbox.setValue(0)
@@ -123,11 +152,22 @@ class CountdownTimer(QFrame):
         self.seconds_spinbox.setValue(0)
 
     def update_timer(self):
+        belly = self.video_manager.points.get("belly")
+        breast = self.video_manager.points.get("breast")
+
+        if not belly or not breast:
+            self.pause_timer()
+            # self.video_manager.recording = False
+            show_info_message('Одна или несколько меток потеряны.')
+
         if self.remaining_time > 0:
             self.remaining_time -= 1
             self.update_time_label()
         else:
             self.timer.stop()
+            self.video_manager.recording = False
+            self.stop_callback()
+            show_info_message('Время истекло.')
 
     def update_time_label(self):
         hours = self.remaining_time // 3600
