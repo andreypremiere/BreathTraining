@@ -1,21 +1,17 @@
-import cv2
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
 
-capture = cv2.VideoCapture(0)  # Использование веб-камеры
-if not capture.isOpened():
-    print("Камера не открыта!")
-    exit()
+class MyWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Абсолютное позиционирование кнопки")
+        self.setGeometry(100, 100, 400, 300)
 
-while True:
-    ret, frame = capture.read()
-    if not ret:
-        print("Не удалось получить кадр!")
-        break
+        # Кнопка внутри слоя
+        self.button = QPushButton("Нажми меня", self)
+        self.button.setGeometry(50, 50, 100, 30)  # Устанавливаем позицию (x, y) и размер (width, height)
 
-    cv2.imshow("Видео", frame)
-
-    # Нажмите "q" для выхода
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-capture.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    app = QApplication([])
+    window = MyWindow()
+    window.show()
+    app.exec()

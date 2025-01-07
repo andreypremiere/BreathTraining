@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QMessageBox
 
 
-def show_error_message(parent, error_message):
+def show_error_message(error_message, parent=None):
     """
     Отображение всплывающего окна с ошибкой.
 

@@ -19,7 +19,7 @@ class DoctorService:
         rows = await self.doctor_repository.get_all_doctors()
 
         if len(rows) == 0:
-            return {}
+            return []
 
         def convert_to_dict(doctor_data):
             doctor = DoctorModel(*doctor_data)
@@ -81,7 +81,7 @@ class DoctorService:
             print('Хэш пароля не совпадает')
             return None
 
-        token = create_access_token(identity=email, expires_delta=timedelta(hours=12))
+        token = create_access_token(identity=result.get('doctor_id'), expires_delta=timedelta(hours=12))
 
         return token
 

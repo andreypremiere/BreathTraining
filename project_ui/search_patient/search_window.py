@@ -1,21 +1,33 @@
-import sys
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor, QFont
-from PyQt6.QtWidgets import QWidget, QApplication, QPushButton, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QLineEdit, \
-    QGraphicsDropShadowEffect, QSizePolicy, QSpacerItem, QScrollArea
+from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QLineEdit, \
+    QGraphicsDropShadowEffect, QSizePolicy, QScrollArea
 from PyQt6.QtGui import QIcon
+
+from additional_widget.clickable_frame import ClickableFrame
+from search_patient.parse_full_name import parse_fullname
+from search_patient.recent_patients import RecentPatients
+from search_patient.requests_serch_window import get_patients_by_name, get_patients_by_ids
+from patient_window.patient_window import PatientWindow
 
 
 class SearchPatient(QWidget):
-    def __init__(self, switch_window_callback=None):
+    def __init__(self, manager, jwt_provider=None, login=None, switch_window_callback=None):
         super().__init__()
 
+        self.manager = manager
         self.button1 = None
         self.left_panel_layout = None
+        # self.patients_of_doctor = get_patients_of_doctor(jwt_provider.get_id_from_token())
+        self.recent_patient_manager = RecentPatients()
+        self.recent_patients = get_patients_by_ids(self.recent_patient_manager.get_all_ids())
         self.switch_window = switch_window_callback
         self.input_lastname_patient = None
         self.button_search_patient = None
+        self.login = login
+        self.jwt_provider = jwt_provider
         self.init_ui()
+        # self.show()
 
     def init_ui(self):
         self.setStyleSheet("""background-color: #E5FBFF;""")
@@ -28,6 +40,8 @@ class SearchPatient(QWidget):
 
         # Левая панель
         self.left_panel = QFrame(self)
+        self.left_panel.hide()
+
         self.left_panel.setStyleSheet("""
             background-color: #F1FDFF;
             border: none;
@@ -81,46 +95,7 @@ class SearchPatient(QWidget):
         self.notes_finded_panel.setSpacing(4)
         self.notes_finded_panel.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Генерация множества кнопок
-        for i in range(30):
-            # Создаем объект с рамкой
-            item_frame = QFrame(self)
-            item_frame.setStyleSheet("""
-                        QFrame {
-                            background-color: none;
-                            border: 1px solid #CCCCCC;
-                            border-radius: 6px;
-                            box-shadow: 
-                        }
-                    """)
-            item_frame.setFixedHeight(70)  # Высота каждого элемента
-            item_frame.setContentsMargins(4, 4, 4, 4)
 
-            # Компоновщик для содержимого
-            item_layout = QVBoxLayout(item_frame)
-            item_layout.setSpacing(2)
-            # item_layout.setContentsMargins(10, 5, 10, 5)  # Внутренние отступы
-
-            # ФИО
-            name_label = QLabel(f"Фамилия Имя Отчество {i + 1}", self)
-            name_label.setStyleSheet("font-size: 14px; font-weight: bold; "
-                                     "color: #333333;"
-                                     "border-style: none;")
-            name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            # name_label.setWordWrap(True)  # Перенос слов
-
-            # Год рождения
-            birth_year_label = QLabel(f"Год рождения: {2000 + i}", self)
-            birth_year_label.setStyleSheet("font-size: 12px; color: #666666;"
-                                           "border-style: none;")
-            birth_year_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-            # Добавляем виджеты в компоновщик
-            item_layout.addWidget(name_label)
-            item_layout.addWidget(birth_year_label)
-
-            # Добавляем объект в панель
-            self.notes_finded_panel.addWidget(item_frame)
 
         # Устанавливаем контейнер в прокручиваемую область
         scroll_area.setWidget(container_widget)
@@ -159,7 +134,7 @@ class SearchPatient(QWidget):
         frame.setGraphicsEffect(shadow_effect)
 
         # Заголовок
-        title = QLabel("Введите ФИО пользователя", self)
+        title = QLabel("Введите ФИО пациента", self)
         font = QFont("Arial", 12)
         font.setWeight(600)
         title.setFont(font)
@@ -168,7 +143,7 @@ class SearchPatient(QWidget):
 
         # Поле ввода
         self.input_lastname_patient = QLineEdit(self)
-        self.input_lastname_patient.setPlaceholderText("Фамилия пациента")
+        # self.input_lastname_patient.setPlaceholderText("ФИО")
         self.input_lastname_patient.setFont(QFont("Arial", 10))
         self.input_lastname_patient.setStyleSheet("background-color: #FBFBFB;"
                                                   "border-radius: 6px;"
@@ -189,7 +164,7 @@ class SearchPatient(QWidget):
                 """)
         self.button_search_patient.setFixedSize(50, 28)
         self.button_search_patient.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.button_search_patient.clicked.connect(self.hide_panel)
+        self.button_search_patient.clicked.connect(self.handle_search_patients)
 
         # Добавление элементов во фрейм
         frame_layout = QVBoxLayout(frame)
@@ -210,9 +185,9 @@ class SearchPatient(QWidget):
         button_panel.setContentsMargins(10, 10, 20, 10)  # Устанавливаем отступы: слева, сверху, справа, снизу
         button_panel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        icons = ['../icons/person.svg', '../icons/latest_list.svg', '../icons/add_patient.svg']
+        icons = ['icons/person.svg', 'icons/latest_list.svg', 'icons/add_patient.svg', 'icons/exit.svg']
 
-        for i in range(3):  # Добавляем три кнопки
+        for i in range(len(icons)):  # Добавляем три кнопки
             button = QPushButton('', self)
             button.setFixedSize(48, 48)
             button.setStyleSheet("""
@@ -235,6 +210,13 @@ class SearchPatient(QWidget):
             button_panel.addWidget(button)
 
         button_panel.itemAt(1).widget().clicked.connect(self.hide_panel_right)
+        button_panel.itemAt(3).widget().clicked.connect(self.handle_exit)
+
+        button_panel.itemAt(0).widget().setToolTip("Мой профиль")
+        button_panel.itemAt(1).widget().setToolTip("Список недавних пациентов")
+        button_panel.itemAt(2).widget().setToolTip("Добавить пациента")
+        button_panel.itemAt(3).widget().setToolTip("Выход")
+
 
         # ---------------------------------------------------------------------------------------------
 
@@ -246,6 +228,7 @@ class SearchPatient(QWidget):
         """)
         self.right_panel.setMinimumWidth(300)  # Ширина панели
         self.right_panel.setMaximumWidth(360)
+        self.right_panel.hide()
 
         # Главный макет правой панели
         right_panel_layout = QVBoxLayout(self.right_panel)
@@ -278,40 +261,7 @@ class SearchPatient(QWidget):
         self.info_panel.setSpacing(4)
         self.info_panel.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Генерация множества карточек
-        for i in range(30):
-            # Карточка
-            item_frame = QFrame(self)
-            item_frame.setStyleSheet("""
-                QFrame {
-                    background-color: none;
-                    border: 1px solid #CCCCCC;
-                    border-radius: 6px;
-                }
-            """)
-            item_frame.setFixedHeight(70)  # Высота карточки
-            item_frame.setContentsMargins(4, 4, 4, 4)
-
-            # Макет для содержимого карточки
-            item_layout = QVBoxLayout(item_frame)
-            item_layout.setSpacing(2)
-
-            # Название элемента
-            title_label = QLabel(f"Элемент {i + 1}", self)
-            title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #333333; border-style: none;")
-            title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-
-            # Подробности элемента
-            detail_label = QLabel(f"Описание элемента {i + 1}", self)
-            detail_label.setStyleSheet("font-size: 12px; color: #666666; border-style: none;")
-            detail_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-            # Добавляем виджеты в карточку
-            item_layout.addWidget(title_label)
-            item_layout.addWidget(detail_label)
-
-            # Добавляем карточку в панель
-            self.info_panel.addWidget(item_frame)
+        self.add_recent_patients()
 
         # Устанавливаем контейнер в прокручиваемую область
         scroll_area_right.setWidget(container_widget_right)
@@ -344,21 +294,125 @@ class SearchPatient(QWidget):
     def hide_panel(self):
         if self.left_panel.isVisible():
             self.left_panel.hide()
-            self.button2.setText("Показать")
-        else:
-            self.left_panel.show()
-            self.button2.setText("Скрыть")
 
     def hide_panel_right(self):
         if self.right_panel.isVisible():
             self.right_panel.hide()
-            self.right_button1.setText("Показать")
         else:
             self.right_panel.show()
-            self.right_button1.setText("Скрыть")
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ventana = SearchPatient()
-    ventana.show()
-    sys.exit(app.exec())
+    def handle_search_patients(self):
+        data = parse_fullname(self.input_lastname_patient.text())
+
+        result = get_patients_by_name(data)
+
+        if result is None:
+            return
+
+        self.add_finded_patients(result)
+
+        if not self.left_panel.isVisible():
+            # self.left_panel.hide()
+            # self.button2.setText("Показать")
+            self.left_panel.show()
+
+    def add_finded_patients(self, data):
+        self.clear_layout(self.notes_finded_panel)
+
+        # Генерация множества кнопок
+        for i in data:
+            item_frame = ClickableFrame(i, self.switch_to_patient_card, self, self.recent_patient_manager.add_user_id)
+            item_frame.setStyleSheet("""
+                                QFrame {
+                                    background-color: none;
+                                    border: 1px solid #CCCCCC;
+                                    border-radius: 6px;
+                                    box-shadow: 
+                                }
+                            """)
+            item_frame.setFixedHeight(70)  # Высота каждого элемента
+            item_frame.setContentsMargins(4, 4, 4, 4)
+
+            # Компоновщик для содержимого
+            item_layout = QVBoxLayout(item_frame)
+            item_layout.setSpacing(2)
+            # item_layout.setContentsMargins(10, 5, 10, 5)  # Внутренние отступы
+
+            # ФИО
+            name_label = QLabel(f"{i['lastname']} {i['name']} {i['surname'] if i['surname'] else ''}", self)
+            name_label.setStyleSheet("font-size: 14px; font-weight: bold; "
+                                     "color: #333333;"
+                                     "border-style: none;")
+            name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            # name_label.setWordWrap(True)  # Перенос слов
+
+            # Год рождения
+            birth_year_label = QLabel(f"{i['birthdate'] if i['birthdate'] else 'Дата не установлена'}", self)
+            birth_year_label.setStyleSheet("font-size: 12px; color: #666666;"
+                                           "border-style: none;")
+            birth_year_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+            # Добавляем виджеты в компоновщик
+            item_layout.addWidget(name_label)
+            item_layout.addWidget(birth_year_label)
+
+            # Добавляем объект в панель
+            self.notes_finded_panel.addWidget(item_frame)
+
+    def clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)  # Получаем первый элемент из лейаута
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()  # Удаляем виджет корректно
+            else:
+                self.clear_layout(item.layout())
+            #
+
+    def add_recent_patients(self):
+        self.clear_layout(self.info_panel)
+        for i in self.recent_patients:
+            # Карточка
+            item_frame = ClickableFrame(i, self.switch_to_patient_card, self, self.recent_patient_manager.add_user_id)
+            item_frame.setStyleSheet("""
+                        QFrame {
+                            background-color: none;
+                            border: 1px solid #CCCCCC;
+                            border-radius: 6px;
+                        }
+                    """)
+            item_frame.setFixedHeight(70)  # Высота карточки
+            item_frame.setContentsMargins(4, 4, 4, 4)
+
+            # Макет для содержимого карточки
+            item_layout = QVBoxLayout(item_frame)
+            item_layout.setSpacing(2)
+
+            # Название элемента
+            title_label = QLabel(f"{i['lastname']} {i['name']} {i['surname'] if i['surname'] else ''}", self)
+            title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #333333; border-style: none;")
+            title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
+            # Подробности элемента
+            detail_label = QLabel(f"{i['birthdate'] if i['birthdate'] else 'Дата не установлена'}", self)
+            detail_label.setStyleSheet("font-size: 12px; color: #666666; border-style: none;")
+            detail_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+            # Добавляем виджеты в карточку
+            item_layout.addWidget(title_label)
+            item_layout.addWidget(detail_label)
+
+            # Добавляем карточку в панель
+            self.info_panel.addWidget(item_frame)
+
+    def switch_to_patient_card(self, patient):
+        self.manager.show_window(PatientWindow, patient=patient, jwt_provider=self.jwt_provider)
+
+    def handle_exit(self):
+        self.jwt_provider.clear_token()
+        self.manager.show_window(self.login)
+
+# app = QApplication(sys.argv)
+# ventana = SearchPatient(manager=None, login=None)
+# ventana.show()
+# sys.exit(app.exec())

@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
                              QGridLayout, QApplication)
 from PyQt6.QtGui import QFont
+
 from register_form.confirm_repeated_password import confirm_password
 from register_form.requests_register import register_doctor
 
@@ -17,7 +18,7 @@ class Registration(QWidget):
     возврата к окну входа.
     """
 
-    def __init__(self, jwt_provider=0, switch_window_callback=0):
+    def __init__(self, manager, login, jwt_provider=0, switch_window_callback=0):
         """
         Инициализация окна регистрации.
 
@@ -36,6 +37,8 @@ class Registration(QWidget):
         # self.switch_window = switch_window_callback  # Колбек для переключения на окно входа
         self.jwt_provider = jwt_provider  # Объект для работы с JWT
         self.init_ui()  # Инициализация пользовательского интерфейса
+        self.manager = manager
+        self.login = login
 
     def init_ui(self):
         """
@@ -44,8 +47,11 @@ class Registration(QWidget):
         Создает заголовок, сетку для полей ввода электронной почты, пароля и подтверждения пароля,
         а также кнопки для регистрации и возврата к окну входа.
         """
+        self.setObjectName("RegistrationWindow")
         self.setStyleSheet("""
-                    background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #D5F8FF, stop: 1 #9BE6FF);
+                    QWidget#RegistrationWindow {
+                        background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #D5F8FF, stop: 1 #9BE6FF);
+                    }
                 """)
 
         layout = QVBoxLayout(self)  # Главный вертикальный макет
@@ -173,10 +179,11 @@ class Registration(QWidget):
             print(result['error'])
 
     def switch_window(self):
-        print('switch')
+        # from login_form.login import Login
+        self.manager.show_window(self.login)
 
 
-app = QApplication(sys.argv)
-ventana = Registration()
-ventana.show()
-sys.exit(app.exec())
+# app = QApplication(sys.argv)
+# ventana = Registration()
+# ventana.show()
+# sys.exit(app.exec())

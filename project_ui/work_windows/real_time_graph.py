@@ -16,9 +16,8 @@ class RealTimeGraph(QWidget):
         self.init_ui()
 
         # Определяем видимую область
-        self.visible_points = 10  # Количество точек, которые должны быть видны
+        self.visible_points = 30  # Количество точек, которые должны быть видны
         self.auto_scroll = True  # Флаг автоматического скроллинга
-        self.current_index = 0  # Индекс для данных
 
         self.data = data
 
@@ -51,15 +50,14 @@ class RealTimeGraph(QWidget):
     def update_graph(self):
         """Обновление данных графика"""
 
-        # Преобразуем временные метки в миллисекунды
-        def parse_timestamp_to_ms(timestamp):
-            """Преобразует строку формата HH:MM:SS:MMM в миллисекунды"""
-            h, m, s, ms = map(int, timestamp.split(":"))
-            return (h * 3600 + m * 60 + s) * 1000 + ms
+        def parse_timestamp(t):
+            return t.strftime("%H:%M:%S")
 
         try:
             # Преобразуем все временные метки в миллисекунды
-            x_values = [parse_timestamp_to_ms(t) for t in self.data['timestamp']]
+            r_values = [parse_timestamp(t) for t in self.data['timestamps']]
+            x_values = list(range(len(self.data['timestamps'])))
+
         except ValueError as e:
             print(f"Ошибка преобразования временной метки: {e}")
             return
@@ -71,7 +69,7 @@ class RealTimeGraph(QWidget):
         self.line2.setData(x_values, y2_values)
 
         # Настройка меток оси X
-        self.plot_widget.getAxis('bottom').setTicks([list(zip(x_values, self.data['timestamp']))])
+        self.plot_widget.getAxis('bottom').setTicks([list(zip(x_values, r_values))])
 
         # Установка диапазона X
         if len(x_values) > self.visible_points:
@@ -82,8 +80,6 @@ class RealTimeGraph(QWidget):
         max_y = max(max(y1_values), max(y2_values))  # Максимальное значение из обоих графиков
 
         self.plot_widget.setYRange(min_y, max_y, padding=0.1)  # Добавляем небольшой отступ
-
-        self.current_index += 1
 
 
 class MainWindow(QWidget):

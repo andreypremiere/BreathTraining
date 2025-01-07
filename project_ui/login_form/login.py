@@ -1,10 +1,12 @@
-import sys
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QCheckBox, QGridLayout,
-                             QVBoxLayout, QApplication)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QCheckBox, QVBoxLayout)
 from PyQt6.QtGui import QFont
+
+from JWT_Provider.jwt_provider import JWTProvider
 from login_form.reguests_login import login_doctor
-from error_service.show_error import show_error_message
+from register_form.registration import Registration
+from search_patient.search_window import SearchPatient
+
 
 class Login(QWidget):
     """
@@ -15,7 +17,7 @@ class Login(QWidget):
     При успешной авторизации токен сохраняется, и происходит переход на другое окно.
     """
 
-    def __init__(self, show_error, jwt_provider=0, switch_to_register=0, switch_to_work_window=0):
+    def __init__(self, jwt_provider=None, manager=None, switch_to_register=0, switch_to_work_window=0):
         """
         Инициализация окна входа.
 
@@ -30,9 +32,11 @@ class Login(QWidget):
         self.show_password_checkbox = None
         self.password_input = None
         self.email_input = None
-        self.show_error = show_error
-        self.jwt_provider = jwt_provider  # Объект для работы с JWT
-        # self.switch_to_work_window = switch_to_work_window
+        self.jwt_provider = jwt_provider if jwt_provider else JWTProvider()
+        self.manager = manager
+        # self.init_ui()
+        if self.check_token():
+            QTimer.singleShot(0, self.switch_to_work_window)
         self.init_ui()
 
     def init_ui(self):
@@ -42,10 +46,13 @@ class Login(QWidget):
         Создает заголовок, сетку для полей ввода электронной почты и пароля, а также кнопки
         для входа и регистрации. Добавляет чекбокс для показа пароля и настраивает макет.
         """
-
+        self.setWindowTitle('Вход')
+        self.setObjectName("LoginWindow")
         self.setStyleSheet("""
-                            background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #D5F8FF, stop: 1 #9BE6FF);
-                        """)
+                    QWidget#LoginWindow {
+                        background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #D5F8FF, stop: 1 #9BE6FF);
+                    }
+                """)
 
         layout = QVBoxLayout(self)  # Главный вертикальный макет
         layout.setContentsMargins(20, 20, 20, 20)
@@ -59,7 +66,7 @@ class Login(QWidget):
         layout.addWidget(header_label)
 
         # Сетка для полей ввода
-        form_layout = QVBoxLayout()
+        form_layout = QVBoxLayout(self)
 
         # Метка и поле для ввода электронной почты
         self.email_input = QLineEdit(self)
@@ -69,7 +76,7 @@ class Login(QWidget):
                                        "border-radius: 6px;"
                                        "border-style: none;")
         self.email_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
-        form_layout.addWidget(self.email_input)
+        form_layout.addWidget(self.email_input, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Метка и поле для ввода пароля
         self.password_input = QLineEdit(self)
@@ -80,14 +87,14 @@ class Login(QWidget):
                                           "border-style: none;")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setFixedSize(300, 28)  # ширина 200 пикселей, высота 30 пикселей
-        form_layout.addWidget(self.password_input)
+        form_layout.addWidget(self.password_input, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         layout.addLayout(form_layout)
 
         # Чекбокс для отображения пароля
         self.show_password_checkbox = QCheckBox("См. пароль", self)
         self.show_password_checkbox.clicked.connect(self.toggle_password_visibility)
-        layout.addWidget(self.show_password_checkbox)
+        layout.addWidget(self.show_password_checkbox, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Кнопка входа
         layout.addSpacing(10)
@@ -119,15 +126,15 @@ class Login(QWidget):
         register_button.setFont(QFont("Arial", 10))
         register_button.setAlignment(Qt.AlignmentFlag.AlignCenter)
         register_button.setOpenExternalLinks(False)
-        register_button.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        register_button.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
         register_button.linkActivated.connect(self.switch_to_register)
         layout.addWidget(register_button)
 
     def switch_to_register(self):
-        self.show_error(self, 'ошибка')
+        self.manager.show_window(Registration, login=type(self))
 
     def switch_to_work_window(self):
-        print('switch_to_work_window')
+        self.manager.show_window(SearchPatient, jwt_provider=self.jwt_provider, login=type(self))
 
     def toggle_password_visibility(self):
         """
@@ -156,12 +163,21 @@ class Login(QWidget):
         if result['error'] is None:
             print(f'Login successful: {result["body"]}')
             self.jwt_provider._token = result['body']
+            self.jwt_provider.save_token()
             self.switch_to_work_window()  # Переключаем на другое окно
         else:
             print(result['error'])
 
+    def check_token(self):
+        self.jwt_provider.load_token()
+        if self.jwt_provider.is_token_valid():
+            return True
+        return False
 
-app = QApplication(sys.argv)
-ventana = Login(show_error=show_error_message)
-ventana.show()
-sys.exit(app.exec())
+
+
+
+# app = QApplication(sys.argv)
+# ventana = Login()
+# ventana.show()
+# sys.exit(app.exec())

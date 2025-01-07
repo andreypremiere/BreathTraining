@@ -22,8 +22,7 @@ class VideoManager:
         # self.capture = self._initialize_video(video_source)
         self.trackers = {'belly': None, 'breast': None}  # Хранение трекеров
         self.points = {'belly': None, 'breast': None}    # Хранение координат
-        self.data = {'indexes': [], 'timestamp': [], 'belly': [],
-                     'breast': [], 'timestamp_start': None}
+        self.data = {'timestamps': [], 'belly': [], 'breast': []}
 
     def _initialize_video(self, video_source: str) -> cv2.VideoCapture:
         """
@@ -143,7 +142,7 @@ class VideoManager:
                 self.recording = False
         return frame
 
-    def update_dataframe(self, current_time, current_index):
+    def update_dataframe(self):
         """
         Обновление DataFrame с координатами точек.
 
@@ -151,16 +150,14 @@ class VideoManager:
         :param trackers: Список трекеров.
         :return: Обновленный DataFrame.
         """
-        if not self.data['timestamp_start']:
-            self.data['timestamp_start'] = datetime.now()
-
         y_points = {key: (tracker.y if tracker and not tracker.lost else None) for key, tracker in self.trackers.items()}
 
-        self.data['indexes'].append(current_index)
-        self.data['timestamp'].append(current_time)
+        self.data['timestamps'].append((datetime.now()))
         self.data['belly'].append(y_points['belly'])
         self.data['breast'].append(y_points['breast'])
 
+    def reset_data(self):
+        self.data = {'timestamps': [], 'belly': [], 'breast': []}
 
     def end(self) -> None:
         """

@@ -14,58 +14,21 @@ from PyQt6.QtGui import QCursor
 from editing_video_v2.color_tracker import ColorTracker
 from editing_video_v2.point_manager import PointManager
 from editing_video_v2.video_manager import VideoManager
-from work_windows_correct.panel_choosing_marks import PanelChoosingMarks
-from work_windows_correct.real_time_graph import RealTimeGraph
-from work_windows_correct.timer_frame import CountdownTimer
+from work_windows.panel_choosing_marks import PanelChoosingMarks
+from work_windows.real_time_graph import RealTimeGraph
+from work_windows.requests_work_window import create_procedure
+from work_windows.timer_frame import CountdownTimer
+from work_windows.video_label import VideoLabel
 
-
-class VideoLabel(QLabel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.panel_choosing_marks = None
-        self.video_manager = None
-        self.actual_coordinates = None
-        # self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # self.setStyleSheet("border: 1px solid black;")
-        self.label_widget = None
-
-        # self.setPixmap(QPixmap())
-
-    def mousePressEvent(self, event: QMouseEvent):
-        label_x = event.position().x()
-        label_y = event.position().y()
-
-        print(f"Координаты клика на лейбле: x={label_x}, y={label_y}")
-
-        # Вычисление относительных координат (для изображения)
-        relative_x = label_x / self.width()
-        relative_y = label_y / self.height()
-
-        x = int(relative_x * self.actual_coordinates[0])
-        y = int(relative_y * self.actual_coordinates[1])
-        print(f'Точки для настоящего кадра: x:{x}, y: {y}')
-
-        # print(self.video_manager.point_manager.selected_mode)
-
-        if self.panel_choosing_marks is not None:
-            if self.video_manager.point_manager.selected_mode in self.video_manager.points \
-                    and self.video_manager.points[self.video_manager.point_manager.selected_mode] is None:
-                self.video_manager.points[self.video_manager.point_manager.selected_mode] = (x, y)
-                self.video_manager.trackers[self.video_manager.point_manager.selected_mode] = ColorTracker(x, y)
-                print(f"Добавлена новая точка '{self.video_manager.point_manager.selected_mode}': (x: {x}, y: {y})")
-                self.panel_choosing_marks.change_mark()
-
-        # print(f"Относительные координаты на изображении: x={relative_x:.2f}, y={relative_y:.2f}")
-
-        super().mousePressEvent(event)
 
 class WorkWindow(QWidget):
-    def __init__(self, switch_window_callback=None):
+    def __init__(self, manager, jwt_provider, patient):
         super().__init__()
-
+        self.manager = manager
+        self.jwt_provider = jwt_provider
+        self.patient = patient
+        self.managing_marks = None
         self.widget_graph = None
-        self.current_index = 0
-        self.current_seconds = 0
         self.timer_dataframe = None
         self.video_manager = None
         self.width_video_label = 480
@@ -238,7 +201,8 @@ class WorkWindow(QWidget):
         right_block_layout.addWidget(choosing_mark_frame, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # таймер
-        countdown_timer = CountdownTimer(video_manager=self.video_manager,
+        countdown_timer = CountdownTimer(parent=self,
+                                         video_manager=self.video_manager,
                                          start_callback=self.start_graph,
                                          stop_callback=self.stop_graph)
         right_block_layout.addWidget(countdown_timer, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -369,6 +333,15 @@ class WorkWindow(QWidget):
 
         # QTimer.singleShot(8000, self.restore_interface)
 
+    def reset_marks(self):
+        self.video_manager.points['belly'] = None
+        self.video_manager.trackers['belly'] = None
+        self.video_manager.points['breast'] = None
+        self.video_manager.trackers['breast'] = None
+        self.widget_graph = None
+        self.current_seconds = 0
+        self.current_index = 0
+
     def restore_interface(self):
         # Возвращаем элементы в исходное состояние
         self.scroll_instruction.setVisible(True)
@@ -388,40 +361,37 @@ class WorkWindow(QWidget):
     def start_graph(self):
         # self.main_layout.removeWidget(self.scroll_instruction)
         self.scroll_instruction.hide()
-        self.widget_graph = self.widget_graph if self.widget_graph else RealTimeGraph(data=self.video_manager.data)
-        self.main_layout.addWidget(self.widget_graph, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        if not self.widget_graph:
+            self.widget_graph = RealTimeGraph(data=self.video_manager.data)
+
+        if self.is_widget_in_layout(self.main_layout, self.widget_graph):
+            self.widget_graph.show()
+        else:
+            self.main_layout.addWidget(self.widget_graph, alignment=Qt.AlignmentFlag.AlignHCenter)
+
         self.timer_dataframe.start(200)
 
+    def is_widget_in_layout(self, layout, widget):
+        for i in range(layout.count()):  # Перебираем все элементы в лэйауте
+            item = layout.itemAt(i)
+            if item.widget() is widget:  # Сравниваем виджет с целевым
+                return True
+        return False
+
     def update_dataframe(self):
-        timestamp = self.convert_to_hmsms(self.current_seconds)
-        self.video_manager.update_dataframe(timestamp, self.current_index)
-        self.widget_graph.update_graph()
-        print('запись')
-        self.current_seconds += 0.2
-        self.current_index += 1
+        if self.video_manager.recording:
+            self.video_manager.update_dataframe()
+            self.widget_graph.update_graph()
+            print('запись')
 
     def stop_graph(self):
         # self.main_layout.addWidget(self.scroll_instruction)
         self.timer_dataframe.stop()
-        self.main_layout.removeWidget(self.widget_graph)
+        # self.main_layout.removeWidget(self.widget_graph)
         self.widget_graph.hide()
         self.scroll_instruction.show()
 
-    def convert_to_hmsms(self, total_seconds):
-        # Получаем количество целых часов
-        hours = total_seconds // 3600
-        remaining_seconds = total_seconds % 3600
-
-        # Получаем количество минут
-        minutes = remaining_seconds // 60
-        seconds = remaining_seconds % 60
-
-        # Получаем количество миллисекунд
-        milliseconds = (seconds - int(seconds)) * 1000
-        seconds = int(seconds)
-
-        # Форматируем результат
-        return f"{int(hours):02}:{int(minutes):02}:{seconds:02}:{int(milliseconds):03}"
 
     def update_frame(self):
         if not self.capture.isOpened():
@@ -438,17 +408,6 @@ class WorkWindow(QWidget):
 
         height, width, channels = frame.shape
         self.video_label.actual_coordinates = (width, height)
-        # print(self.video_label.actual_coordinates)
-
-        # if self.video_manager.points['belly'] is None:
-        #     self.video_manager.point_manager.point_belly()
-        # elif self.video_manager.points['breast'] is None:
-        #     self.video_manager.point_manager.point_breast()
-        # else:
-        #     self.video_manager.point_manager.selected_mode = None
-
-        # if self.video_manager.point_manager.selected_mode is not None:
-        #     print(f"Кликните на объект для выбора точки: {self.video_manager.point_manager.selected_mode}")
 
         # Создание трекеров при наличии точек
         for key in self.video_manager.points:
@@ -473,9 +432,6 @@ class WorkWindow(QWidget):
 
         frame = self.video_manager.process_frame(frame)
 
-        # if self.video_manager.recording:
-        #     self.video_manager.data = self.video_manager.update_dataframe(self.video_manager.data, self.video_manager.trackers)
-
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = self.resize_frame_to_label(frame)
         # print(f"Размер кадра после масштабирования: {frame.shape}")
@@ -486,6 +442,10 @@ class WorkWindow(QWidget):
         self.video_label.setPixmap(pixmap)
         # print("Кадр успешно отображён.")
 
+    # Используется в timer_frame
+    def save_procedure_data(self):
+        create_procedure(self.patient['patient_id'], self.jwt_provider.get_id_from_token(), self.video_manager.data)
+        # print(self.video_manager.data)
 
     def resize_frame_to_label(self, frame):
         """Масштабирует кадр под размер QLabel."""
@@ -501,18 +461,12 @@ class WorkWindow(QWidget):
         return shadow
 
     def closeEvent(self, event):
-        # df = self.video_manager.get_dataframe()
-        # df.to_csv('output.csv', index=False)
-
-        for i, z in self.video_manager.data.items():
-            print(i, z)
-
         if self.capture and self.capture.isOpened():
             self.capture.release()
         event.accept()
 
 
-app = QApplication(sys.argv)
-window = WorkWindow()
-window.show()
-sys.exit(app.exec())
+# app = QApplication(sys.argv)
+# window = WorkWindow()
+# window.show()
+# sys.exit(app.exec())

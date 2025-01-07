@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer, Qt
 
+from error_service.finish_procedure import DialogProcedure
+
 
 def show_info_message(text):
     # Создание и настройка информационного окна
@@ -20,6 +22,7 @@ def show_info_message(text):
 class CountdownTimer(QFrame):
     def __init__(self, parent=None, video_manager=None,
                  start_callback=None, stop_callback=None):
+        self.parent_wid = parent
         self.video_manager = video_manager
         self.start_callback = start_callback
         self.stop_callback = stop_callback
@@ -121,9 +124,9 @@ class CountdownTimer(QFrame):
     def start_timer(self):
         if self.remaining_time == 0:  # Если время не установлено, берём из спинбоксов
             self.remaining_time = (
-                self.hours_spinbox.value() * 3600
-                + self.minutes_spinbox.value() * 60
-                + self.seconds_spinbox.value()
+                    self.hours_spinbox.value() * 3600
+                    + self.minutes_spinbox.value() * 60
+                    + self.seconds_spinbox.value()
             )
 
         belly = self.video_manager.points.get("belly")
@@ -136,7 +139,6 @@ class CountdownTimer(QFrame):
         else:
             show_info_message('Не установлена одна или несколько меток.')
 
-
     def pause_timer(self):
         self.timer.stop()
         self.video_manager.recording = False
@@ -144,7 +146,17 @@ class CountdownTimer(QFrame):
 
     def reset_timer(self):
         self.timer.stop()
+        self.video_manager.recording = False
         self.stop_callback()
+        message_error = DialogProcedure(1, save_procedure_callback=self.parent_wid.save_procedure_data,
+                                        open_choose_marks_window=self.parent_wid.choose_marks_button,
+                                        reset_marks_callback=self.parent_wid.reset_marks,
+                                        reset_timer_callback=self.clean_timer,
+                                        reset_data_callback=self.video_manager.reset_data)
+        message_error.exec()
+        self.clean_timer()
+
+    def clean_timer(self):
         self.remaining_time = 0
         self.update_time_label()
         self.hours_spinbox.setValue(0)
@@ -158,8 +170,13 @@ class CountdownTimer(QFrame):
         if not belly or not breast:
             self.pause_timer()
             # self.video_manager.recording = False
-            show_info_message('Одна или несколько меток потеряны.')
-
+            message_error = DialogProcedure(2, save_procedure_callback=self.parent_wid.save_procedure_data,
+                                            open_choose_marks_window=self.parent_wid.choose_marks_button,
+                                            reset_marks_callback=self.parent_wid.reset_marks,
+                                            reset_timer_callback=self.clean_timer,
+                                            reset_data_callback=self.video_manager.reset_data
+                                            )
+            message_error.exec()
         if self.remaining_time > 0:
             self.remaining_time -= 1
             self.update_time_label()
@@ -167,7 +184,12 @@ class CountdownTimer(QFrame):
             self.timer.stop()
             self.video_manager.recording = False
             self.stop_callback()
-            show_info_message('Время истекло.')
+            message_error = DialogProcedure(1, save_procedure_callback=self.parent_wid.save_procedure_data,
+                                            open_choose_marks_window=self.parent_wid.choose_marks_button,
+                                            reset_marks_callback=self.parent_wid.reset_marks,
+                                            reset_timer_callback=self.clean_timer,
+                                            reset_data_callback=self.video_manager.reset_data)
+            message_error.exec()
 
     def update_time_label(self):
         hours = self.remaining_time // 3600

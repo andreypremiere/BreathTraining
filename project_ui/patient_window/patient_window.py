@@ -5,14 +5,21 @@ from PyQt6.QtGui import QIcon, QFont, QColor
 from PyQt6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QPushButton, \
     QGraphicsDropShadowEffect, QSizePolicy, QScrollArea
 
+from additional_widget.clickable_frame import ClickableProcedure
+from patient_window.requests_patient_window import get_procedures_of_patient
+from work_windows.work_window import WorkWindow
+
 
 class PatientWindow(QWidget):
-    def __init__(self, switch_window_callback=None):
+    def __init__(self, manager, patient, jwt_provider):
         super().__init__()
 
+        self.manager = manager
+        self.patient = patient
+        self.jwt_provider = jwt_provider
+        self.procedures_list = self.get_procedures_of_patient()
         self.button1 = None
         self.left_panel_layout = None
-        self.switch_window = switch_window_callback
         self.input_lastname_patient = None
         self.button_search_patient = None
         self.init_ui()
@@ -50,18 +57,21 @@ class PatientWindow(QWidget):
             frame_information.sizePolicy().verticalPolicy().Preferred  # Высота подстраивается
         )
 
-        label_name = QLabel('Фамилия Имя Отчество', parent=frame_information)
+        label_name = QLabel(
+            f"{self.patient['lastname']} {self.patient['name']} "
+            f"{self.patient['surname'] if self.patient['surname'] else ''}",
+            parent=frame_information)
         font = QFont("Arial", 14)
         font.setWeight(600)
         label_name.setFont(font)
         label_name.setMinimumWidth(360)
-        label_date = QLabel(f'Дата рождения: {32982}; Возраст: {892}', parent=frame_information)
+        label_date = QLabel(f"{self.patient['birthdate'] if self.patient['birthdate'] else 'Дата рождения отсутствует'}",
+                            parent=frame_information)
         font = QFont("Arial", 12)
         font.setWeight(400)
         label_date.setFont(font)
         label_date.setMinimumWidth(360)
-        label_desc = QLabel("Диагноз: Это пример текста, который автоматически переносится на следующую строку, "
-                            "если не хватает места в родительском элементе.",
+        label_desc = QLabel(f"{self.patient['diagnosis'] if self.patient['diagnosis'] else 'Диагноз отсутствует'}",
                             parent=frame_information)
         font = QFont("Arial", 10)
         font.setWeight(400)
@@ -81,6 +91,7 @@ class PatientWindow(QWidget):
         information_v_layout.addWidget(label_desc)
 
         button_edit_patient = QPushButton('', parent=frame_information)
+        button_edit_patient.setCursor(Qt.CursorShape.PointingHandCursor)
         button_edit_patient.setFixedSize(54, 54)
         button_edit_patient.setStyleSheet("""
                        QPushButton {
@@ -100,7 +111,7 @@ class PatientWindow(QWidget):
 
         button_edit_patient.setGraphicsEffect(shadow)
 
-        icon = QIcon('../icons/edit_patient.svg')  # Загружаем иконку из файла
+        icon = QIcon('icons/edit_patient.svg')  # Загружаем иконку из файла
         button_edit_patient.setIcon(icon)
         button_edit_patient.setIconSize(button_edit_patient.size() - QSize(10, 10))
 
@@ -141,6 +152,7 @@ class PatientWindow(QWidget):
 
         # Кнопка начала записи
         button_start_procedure = QPushButton('Начать процедуру', parent=lower_frame)
+        button_start_procedure.setCursor(Qt.CursorShape.PointingHandCursor)
         button_start_procedure.setMinimumWidth(300)
         button_start_procedure.setFixedHeight(100)
         button_start_procedure.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -156,6 +168,7 @@ class PatientWindow(QWidget):
                                    background-color: #ADE8F4;
                                }
                            """)
+        button_start_procedure.clicked.connect(self.switch_to_work_window)
 
         left_sub_main_layout.addWidget(button_start_procedure)
 
@@ -218,8 +231,9 @@ class PatientWindow(QWidget):
         history_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # Генерация множества кнопок
-        for i in range(10):
-            item_history = QFrame(parent=container_scroll_history)
+        for i in range(len(self.procedures_list)):
+            item_history = ClickableProcedure(self.procedures_list[i], self.switch_to_watching_procedure,
+                                              parent=container_scroll_history)
             item_history.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
             item_history.setStyleSheet("""
@@ -236,21 +250,22 @@ class PatientWindow(QWidget):
 
             item_history_main_layout = QHBoxLayout(item_history)
 
-            serial_number = QLabel(f'{i}', parent=item_history)
+            serial_number = QLabel(f'{i+1}', parent=item_history)
             serial_number.setFont(QFont("Arial", 15, weight=500))
 
             item_history_main_layout.addWidget(serial_number)
 
             information_item = QVBoxLayout(item_history)
 
-            date_procedure = QLabel(f'Дата: {i}', parent=item_history)
+            date_procedure = QLabel(f"Дата: {self.procedures_list[i]['created_at'].strftime('%d.%m.%y %H:%M')}",
+                                    parent=item_history)
             date_procedure.setFont(QFont("Arial", 10, weight=400))
 
-            duration_procedure = QLabel(f'Продолжительность: {i} мин', parent=item_history)
-            duration_procedure.setFont(QFont("Arial", 10, weight=400))
+            # duration_procedure = QLabel(f'Продолжительность: {i} мин', parent=item_history)
+            # duration_procedure.setFont(QFont("Arial", 10, weight=400))
 
             information_item.addWidget(date_procedure, alignment=Qt.AlignmentFlag.AlignLeft)
-            information_item.addWidget(duration_procedure, alignment=Qt.AlignmentFlag.AlignLeft)
+            # information_item.addWidget(duration_procedure, alignment=Qt.AlignmentFlag.AlignLeft)
 
             item_history_main_layout.addLayout(information_item)
             item_history_main_layout.addStretch()
@@ -317,6 +332,8 @@ class PatientWindow(QWidget):
                                 }
                             """)
             new_button.setFixedSize(80, 28)
+            new_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
             # new_button.setCursor(Qt.CursorShape.PointingHandCursor)
             return new_button
 
@@ -364,8 +381,8 @@ class PatientWindow(QWidget):
 
             return frame_stat_item
 
-        data_statistics.append(create_label_data('Mean value', 302))
-        data_statistics.append(create_label_data('Max value', 38290))
+        data_statistics.append(create_label_data('Количество процедур', len(self.procedures_list)))
+        # data_statistics.append(create_label_data('Max value', 38290))
 
         items_layout = QVBoxLayout(statistics_frame)
         items_layout.setSpacing(2)
@@ -375,7 +392,7 @@ class PatientWindow(QWidget):
         statistics_layout.addLayout(items_layout)
         # добавление в главные компановщики
 
-        right_sub_main_layout.addWidget(statistics_frame)
+        right_sub_main_layout.addWidget(statistics_frame, alignment=Qt.AlignmentFlag.AlignTop)
 
         sub_main_lower_layout.addLayout(left_sub_main_layout)
         # sub_main_lower_layout.addStretch()
@@ -386,9 +403,27 @@ class PatientWindow(QWidget):
 
         main_layout.addLayout(main_v_layout)
 
+    def get_procedures_of_patient(self):
+        result = get_procedures_of_patient(self.patient['patient_id'])
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ventana = PatientWindow()
-    ventana.show()
-    sys.exit(app.exec())
+        try:
+            sorted_procedures = sorted(result, key=lambda x: x["created_at"], reverse=True)
+            return sorted_procedures
+        except Exception as e:
+            print('Ошибка сортировки списка процедур: ', e)
+            return []
+
+    def switch_to_watching_procedure(self, procedure):
+        print(procedure)
+
+        # Здесь вызов на окно просмотра процедуры, его нужно сделать
+        # self.manager.show_window()
+
+    def switch_to_work_window(self):
+        self.manager.show_window(WorkWindow, jwt_provider=self.jwt_provider, patient=self.patient)
+
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+#     ventana = PatientWindow()
+#     ventana.show()
+#     sys.exit(app.exec())
