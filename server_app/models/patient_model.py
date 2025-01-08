@@ -1,4 +1,4 @@
-from datetime import datetime
+import datetime
 
 
 class PatientModel:
@@ -11,7 +11,14 @@ class PatientModel:
         self.surname: str = surname
         self.email: str = email
         self.number_phone: str = number_phone
-        self.birthdate: datetime.date = birthdate
+
+        if isinstance(birthdate, datetime.date):
+            self.birthdate: datetime.date = birthdate
+        elif isinstance(birthdate, str):
+            self.birthdate: datetime.date = datetime.date.fromisoformat(birthdate)
+        else:
+            self.birthdate: datetime.date = None
+
         self.diagnosis: str = diagnosis
         self.treatmentcard: str = treatmentcard
         self.is_active: bool = is_active

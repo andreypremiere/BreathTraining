@@ -1,32 +1,49 @@
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QCursor
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QComboBox, QPushButton
+import sys
 
-class MyWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Абсолютное позиционирование кнопки")
-        self.setGeometry(100, 100, 400, 300)
 
-        # Кнопка внутри слоя
-        self.button_back = QPushButton("Назад", self)
-        self.button_back.setFont(QFont("Arial", 14, 400))
-        self.button_back.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
+        self.setWindowTitle("Выпадающее меню")
+
+        # Создаем QComboBox
+        self.dropdown = QComboBox()
+        self.dropdown.setStyleSheet("""
+            QComboBox {
+                background-color: white;
+                border: none;
                 border-radius: 8px;
                 padding: 6px 10px;
             }
-            QPushButton:pressed {
-                background-color: #ADE8F4;
-            }
         """)
-        self.button_back.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.button_back.adjustSize()
-        self.button_back.move(20, 20)
+        self.dropdown.addItems(["Не установлен", "Мужской", "Женский"])  # Добавляем элементы в список
+        self.dropdown.setPlaceholderText("Выберите вариант")  # Подсказка до выбора
 
-if __name__ == "__main__":
-    app = QApplication([])
-    window = MyWindow()
-    window.show()
-    app.exec()
+        # Кнопка для получения выбранного значения
+        self.button = QPushButton("Получить выбор")
+        self.button.clicked.connect(self.get_selection)
+
+        # Макет
+        layout = QVBoxLayout()
+        layout.addWidget(self.dropdown)
+        layout.addWidget(self.button)
+
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+
+    def get_selection(self):
+        """
+        Получение выбранного значения из выпадающего списка.
+        """
+        selected_text = self.dropdown.currentText()  # Текст выбранного элемента
+        selected_index = self.dropdown.currentIndex()  # Индекс выбранного элемента
+        print(f"Вы выбрали: {selected_text} (индекс: {selected_index})")
+
+
+# Запуск приложения
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+app.exec()

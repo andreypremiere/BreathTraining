@@ -13,23 +13,33 @@ class PatientRepository:
         patient_data = patient.to_dict()
 
         if 'patient_id' in patient_data:
-            del patient_data['patient_id']
+            del patient_data['patient_id']  # Удаляем patient_id, так как он генерируется автоматически
 
         query = f"""
-                    INSERT INTO {self.table_name} (name, lastname, surname, email,
-                                                  number_phone, birthdate, diagnosis, treatmentcard,
-                                                  is_active, gender, doctor_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-                """
+            INSERT INTO {self.table_name} (name, lastname, surname, email,
+                                          number_phone, birthdate, diagnosis, treatmentcard,
+                                          is_active, gender, doctor_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING patient_id;
+        """
 
         try:
             # Используем транзакцию для выполнения запроса
             async with conn.transaction():
-                await conn.execute(query, *patient_data.values())
-            print('Пациент создан')
-            return True
+                # Выполняем запрос и получаем результат
+                result = await conn.fetchrow(query, *patient_data.values())
+
+            if result:
+                # Извлекаем и возвращаем patient_id
+                patient_id = result['patient_id']
+                print(f'Пациент создан с ID: {patient_id}')
+                return patient_id
+            else:
+                print('Ошибка: не удалось получить patient_id')
+                return None
         except Exception as e:
             print(f"Ошибка при добавлении пациента: {e}")
+            return None
         finally:
             await release_db_conn(conn)
 
@@ -95,5 +105,22 @@ class PatientRepository:
         except Exception as e:
             print(e)
             return
+        finally:
+            await release_db_conn(conn)
+
+    async def get_patient_by_id(self, patient_id):
+        if not patient_id:
+            return None
+
+        conn = await get_db_conn()
+
+        query = f"SELECT * FROM {self.table_name} WHERE patient_id = $1"
+
+        try:
+            row = await conn.fetchrow(query, patient_id)
+            return row
+        except Exception as e:
+            print(f"Error fetching patient by ID: {e}")
+            return None
         finally:
             await release_db_conn(conn)

@@ -40,7 +40,7 @@ async def create_new_patient():
     if not result:
         return 'Пациент не создан', 410
 
-    return '', 200
+    return jsonify({'patient_id': result}), 200
 
 @patient_bp.route('/get_patients_of_doctor', methods=['GET'])
 async def get_patients_of_doctor():
@@ -76,5 +76,13 @@ async def get_patients_by_ids():
 
     if not result:
         return 'Ошибка запроса', 404
+
+    return jsonify(result), 200
+
+@patient_bp.route('/get_patient_by_id', methods=['GET'])
+async def get_patient_by_id():
+    patient_id = request.args.get('patient_id')
+
+    result = await patient_service.get_patient_by_id(patient_id)
 
     return jsonify(result), 200

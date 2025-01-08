@@ -11,4 +11,7 @@ class Urls:
     CREATE_PROCEDURE = f'{base_host}/procedure/create_procedure'
     GET_PROCEDURES_OF_PATIENT = f'{base_host}/procedure/get_procedures_by_patient_id'
     GET_PROCEDURE_BY_PROC_ID = f'{base_host}/procedure/get_procedure_by_proc_id'
+    CREATE_NEW_PATIENT = f'{base_host}/patient//create_new_patient'
+    # CHANGE_PATIENT =
+
 

@@ -79,3 +79,18 @@ class PatientService:
         patients = [convert_to_dict(patient_data) for patient_data in rows]
 
         return patients
+
+    async def get_patient_by_id(self, patient_id):
+        row = await self.patient_repository.get_patient_by_id(patient_id)
+
+        if row is None:
+            return None
+
+        patient = convert_to_dict(row)
+
+        # print(type(patient['birthdate']))
+        # print(patient['birthdate'])
+
+        patient['birthdate'] = patient['birthdate'].isoformat()
+        # print(patient['birthdate'])
+        return patient

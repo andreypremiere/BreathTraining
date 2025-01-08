@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFra
 from PyQt6.QtGui import QIcon
 
 from additional_widget.clickable_frame import ClickableFrame
+from editing_patient.editing_patient_window import EditingPatient
 from search_patient.parse_full_name import parse_fullname
 from search_patient.recent_patients import RecentPatients
 from search_patient.requests_serch_window import get_patients_by_name, get_patients_by_ids
@@ -210,6 +211,7 @@ class SearchPatient(QWidget):
             button_panel.addWidget(button)
 
         button_panel.itemAt(1).widget().clicked.connect(self.hide_panel_right)
+        button_panel.itemAt(2).widget().clicked.connect(self.go_to_new_patient)
         button_panel.itemAt(3).widget().clicked.connect(self.handle_exit)
 
         button_panel.itemAt(0).widget().setToolTip("Мой профиль")
@@ -407,6 +409,9 @@ class SearchPatient(QWidget):
 
     def switch_to_patient_card(self, patient):
         self.manager.show_window(PatientWindow, patient=patient, jwt_provider=self.jwt_provider)
+
+    def go_to_new_patient(self):
+        self.manager.show_window(EditingPatient, jwt_provider=self.jwt_provider, patient=None)
 
     def handle_exit(self):
         self.jwt_provider.clear_token()

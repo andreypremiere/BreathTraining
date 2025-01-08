@@ -87,10 +87,13 @@ class WorkWindow(QWidget):
         """)
         patient_data_layout.setContentsMargins(20, 20, 20, 20)
 
-        name_patient_label = QLabel('Фамилия Имя Отчество', patient_data_frame)
+        name_patient_label = QLabel(f"{self.patient['lastname']} {self.patient['name']} "
+                                    f"{self.patient['surname'] if self.patient['surname'] else ''}",
+                                    patient_data_frame)
         name_patient_label.setFont(QFont("Arial", 14, 600))
 
-        date_label = QLabel(f'Дата рождения: {32982}; Возраст: {892}', parent=patient_data_frame)
+        date_label = QLabel(f"{self.patient['birthdate'] if self.patient['birthdate'] else 'Дата рождения отсутствует'}",
+                            parent=patient_data_frame)
         date_label.setFont(QFont("Arial", 12, 400))
 
         patient_data_layout.addWidget(name_patient_label, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -136,7 +139,7 @@ class WorkWindow(QWidget):
         self.calibration_button = QPushButton('Калибровка камеры', parent=calibration_button_frame)
         self.calibration_button.setFont(QFont('Arial', 11, 400))
         self.calibration_button.setSizePolicy(QSizePolicy.Policy.Preferred,
-                                         QSizePolicy.Policy.Preferred)
+                                              QSizePolicy.Policy.Preferred)
         self.calibration_button.setStyleSheet("""
             QPushButton {
                 background-color: #ADE8F4;
@@ -176,7 +179,7 @@ class WorkWindow(QWidget):
         self.choose_mark_button = QPushButton('Выбрать метки', choosing_mark_frame)
         self.choose_mark_button.setFont(QFont('Arial', 11, 400))
         self.choose_mark_button.setSizePolicy(QSizePolicy.Policy.Preferred,
-                                         QSizePolicy.Policy.Preferred)
+                                              QSizePolicy.Policy.Preferred)
         self.choose_mark_button.setStyleSheet("""
                     QPushButton {
                         background-color: #ADE8F4;
@@ -297,7 +300,7 @@ class WorkWindow(QWidget):
         """
 
         instruction_head_label = QLabel(parent=instruction_frame,
-                                   text="Инструкция")
+                                        text="Инструкция")
         instruction_head_label.setFont(QFont('Arial', 16, 600))
 
         instruction_label = QLabel(parent=instruction_frame,
@@ -305,7 +308,6 @@ class WorkWindow(QWidget):
         instruction_label.setFont(QFont('Arial', 11, 400))
 
         instruction_label.setWordWrap(True)
-
 
         instruction_layout.addWidget(instruction_head_label, alignment=Qt.AlignmentFlag.AlignHCenter)
         instruction_layout.addWidget(instruction_label)
@@ -337,7 +339,6 @@ class WorkWindow(QWidget):
         self.calibration_button.setEnabled(False)
         self.calibration_finish_label.setText('Калибровка камеры выполнена')
 
-
     def choose_marks_button(self):
         self.scroll_instruction.setVisible(False)
         self.managing_procedure_frame.setVisible(False)
@@ -350,7 +351,6 @@ class WorkWindow(QWidget):
         self.video_label.panel_choosing_marks = self.managing_marks
         self.main_layout.addWidget(self.managing_marks, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.main_layout.addWidget(self.video_label, alignment=Qt.AlignmentFlag.AlignHCenter)
-
 
         # QTimer.singleShot(8000, self.restore_interface)
 
@@ -413,7 +413,6 @@ class WorkWindow(QWidget):
         self.widget_graph.hide()
         self.scroll_instruction.show()
 
-
     def update_frame(self):
         if not self.capture.isOpened():
             # print("Камера не открыта!")
@@ -444,7 +443,6 @@ class WorkWindow(QWidget):
         else:
             self.value_belly_label.setText('Не установлена')
 
-
         if isinstance(breast, (list, tuple)):
             # print(f'breast y: {breast[1]}')
             self.value_breast_label.setText(str(breast[1]))
@@ -470,7 +468,8 @@ class WorkWindow(QWidget):
 
     def resize_frame_to_label(self, frame):
         """Масштабирует кадр под размер QLabel."""
-        resized_image = cv2.resize(frame, (self.width_video_label, self.height_video_label), interpolation=cv2.INTER_AREA)
+        resized_image = cv2.resize(frame, (self.width_video_label, self.height_video_label),
+                                   interpolation=cv2.INTER_AREA)
         # return cv2.flip(resized_image, 1)
         return resized_image
 
@@ -491,9 +490,6 @@ class WorkWindow(QWidget):
         if self.capture and self.capture.isOpened():
             self.capture.release()
         event.accept()
-
-
-
 
 # app = QApplication(sys.argv)
 # window = WorkWindow()
