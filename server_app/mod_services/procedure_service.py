@@ -31,11 +31,11 @@ class ProcedureService:
 
         try:
             result["created_at"] = result["created_at"].isoformat()
-            result["timestamp"] = []
+            result["timestamps"] = []
             result["belly"] = []
             result["breast"] = []
             for i in result["sessions"]:
-                result["timestamp"].append(i["timestamp"].isoformat())
+                result["timestamps"].append(i["timestamp"].isoformat())
                 result["belly"].append(int(i["belly"]))
                 result["breast"].append(int(i["breast"]))
             result.pop("sessions")

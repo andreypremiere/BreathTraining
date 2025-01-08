@@ -3,7 +3,7 @@ import time
 
 import cv2
 import pandas as pd
-from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtCore import Qt, QSize, QTimer, QPoint, QPointF
 from PyQt6.QtGui import QIcon, QFont, QColor, QMouseEvent
 from PyQt6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QPushButton, \
     QGraphicsDropShadowEffect, QSizePolicy, QScrollArea, QMessageBox
@@ -43,6 +43,26 @@ class WorkWindow(QWidget):
         self.setStyleSheet("""background-color: #E5FBFF;""")
         self.setWindowTitle('Процедура')
         self.setGeometry(50, 30, 1400, 780)
+
+        self.button_back = QPushButton("Назад", self)
+        self.button_back.setFont(QFont("Arial", 14, 400))
+        self.button_back.setStyleSheet("""
+                    QPushButton {
+                        background-color: #FFFFFF;
+                        border-radius: 8px;
+                        padding: 6px 10px;
+                    }
+                    QPushButton:pressed {
+                        background-color: #ADE8F4;
+                    }
+                """)
+        self.button_back.setGraphicsEffect(
+            QGraphicsDropShadowEffect(parent=self.button_back, blurRadius=20, color=QColor(0, 0, 0, 32),
+                                      offset=QPointF(0, 0)))
+        self.button_back.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.button_back.adjustSize()
+        self.button_back.move(20, 20)
+        self.button_back.clicked.connect(self.go_to_back_window)
 
         # главные слои
         layout = QHBoxLayout(self)
@@ -301,6 +321,7 @@ class WorkWindow(QWidget):
 
         main_frame.setLayout(self.main_layout)
         layout.addWidget(main_frame, alignment=Qt.AlignmentFlag.AlignTop)
+        self.button_back.raise_()
 
         # таймер для видео
         self.capture = cv2.VideoCapture(0)  # Укажите путь к вашему видео
@@ -460,10 +481,18 @@ class WorkWindow(QWidget):
         shadow.setOffset(0, 0)
         return shadow
 
+    def go_to_back_window(self):
+        if self.video_manager.recording:
+            return
+        from patient_window.patient_window import PatientWindow
+        self.manager.show_window(PatientWindow, patient=self.patient, jwt_provider=self.jwt_provider)
+
     def closeEvent(self, event):
         if self.capture and self.capture.isOpened():
             self.capture.release()
         event.accept()
+
+
 
 
 # app = QApplication(sys.argv)

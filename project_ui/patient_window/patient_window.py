@@ -1,12 +1,13 @@
 import sys
 
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QIcon, QFont, QColor
+from PyQt6.QtCore import Qt, QSize, QPoint, QPointF
+from PyQt6.QtGui import QIcon, QFont, QColor, QCursor
 from PyQt6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QPushButton, \
     QGraphicsDropShadowEffect, QSizePolicy, QScrollArea
 
 from additional_widget.clickable_frame import ClickableProcedure
 from patient_window.requests_patient_window import get_procedures_of_patient
+from watching_procedure.watching_procedure_window import WatchingProcedureWindow
 from work_windows.work_window import WorkWindow
 
 
@@ -29,6 +30,26 @@ class PatientWindow(QWidget):
         self.setWindowTitle('Страница клиента')
         self.setGeometry(50, 30, 1400, 780)
 
+        self.button_back = QPushButton("Назад", self)
+        self.button_back.setFont(QFont("Arial", 14, 400))
+        self.button_back.setStyleSheet("""
+                            QPushButton {
+                                background-color: #FFFFFF;
+                                border-radius: 8px;
+                                padding: 6px 10px;
+                            }
+                            QPushButton:pressed {
+                                background-color: #ADE8F4;
+                            }
+                        """)
+        self.button_back.setGraphicsEffect(
+            QGraphicsDropShadowEffect(parent=self.button_back, blurRadius=20, color=QColor(0, 0, 0, 32),
+                                      offset=QPointF(0, 0)))
+        self.button_back.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.button_back.adjustSize()
+        self.button_back.move(20, 20)
+        self.button_back.clicked.connect(self.go_to_back_window)
+
         # главный горизонтальный layout
         main_layout = QHBoxLayout(self)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -46,12 +67,11 @@ class PatientWindow(QWidget):
         """)
         frame_information.setMinimumWidth(400)
         frame_information.setMaximumWidth(660)
-        shadow = QGraphicsDropShadowEffect(parent=frame_information)
-        shadow.setBlurRadius(20)  # Радиус размытия тени
-        shadow.setColor(QColor(0, 0, 0, 64))  # Чёрная тень с прозрачностью
-        shadow.setOffset(0, 0)  # Смещение тени по X и Y
+        frame_information.setGraphicsEffect(
+            QGraphicsDropShadowEffect(parent=frame_information, blurRadius=20, color=QColor(0, 0, 0, 64),
+                                      offset=QPointF(0, 0))
+        )
 
-        frame_information.setGraphicsEffect(shadow)
         frame_information.setSizePolicy(
             frame_information.sizePolicy().horizontalPolicy().Expanding,  # Оставляем ширину неизменной
             frame_information.sizePolicy().verticalPolicy().Preferred  # Высота подстраивается
@@ -71,7 +91,7 @@ class PatientWindow(QWidget):
         font.setWeight(400)
         label_date.setFont(font)
         label_date.setMinimumWidth(360)
-        label_desc = QLabel(f"{self.patient['diagnosis'] if self.patient['diagnosis'] else 'Диагноз отсутствует'}",
+        label_desc = QLabel(f"Диагноз: {self.patient['diagnosis'] if self.patient['diagnosis'] else 'Диагноз отсутствует'}",
                             parent=frame_information)
         font = QFont("Arial", 10)
         font.setWeight(400)
@@ -273,7 +293,6 @@ class PatientWindow(QWidget):
             item_history.setLayout(item_history_main_layout)
             history_layout.addWidget(item_history)
 
-
         container_scroll_history.setLayout(history_layout)
         scroll_area_history.setWidget(container_scroll_history)
 
@@ -318,6 +337,7 @@ class PatientWindow(QWidget):
 
         # Кнопки загрузки и скачивания
         button_el_card_layout = QHBoxLayout(elecrtonic_card_sub_frame)
+        self.button_back.raise_()
 
         def create_button_for_card(text):
             new_button = QPushButton(text, elecrtonic_card_sub_frame)
@@ -415,12 +435,16 @@ class PatientWindow(QWidget):
 
     def switch_to_watching_procedure(self, procedure):
         print(procedure)
-
-        # Здесь вызов на окно просмотра процедуры, его нужно сделать
-        # self.manager.show_window()
+        self.manager.show_window(WatchingProcedureWindow, jwt_provider=self.jwt_provider,
+                                 patient=self.patient, procedure=procedure)
 
     def switch_to_work_window(self):
         self.manager.show_window(WorkWindow, jwt_provider=self.jwt_provider, patient=self.patient)
+
+    def go_to_back_window(self):
+        from search_patient.search_window import SearchPatient
+        from login_form.login import Login
+        self.manager.show_window(SearchPatient, jwt_provider=self.jwt_provider, login=Login)
 
 # if __name__ == "__main__":
 #     app = QApplication(sys.argv)
