@@ -5,6 +5,8 @@
 **Backend:** Python/Quart 
 **Frontend:** PyQt6
 
+Демонстрация работы: 
+
 ![Демонстрация работы](./demo.gif)
 
 ---
