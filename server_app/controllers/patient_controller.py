@@ -9,26 +9,6 @@ patient_bp = Blueprint('patient', __name__, url_prefix='/patient')
 patient_service = PatientService()
 
 
-# @patient_bp.route('/get_patients_of_doctor', methods=['GET'])
-# # @jwt_required()
-# async def get_patients_of_doctor():
-#     """
-#     Получение всех пациентов по id доктора.
-#     :return:
-#     """
-#     rows = await self.doctor_repository.get_all_doctors()
-#
-#     if len(rows) == 0:
-#         return {}
-#
-#     def convert_to_dict(doctor_data):
-#         doctor = DoctorModel(*doctor_data)
-#         return doctor.to_dict()
-#
-#     doctors = [convert_to_dict(doctor_data) for doctor_data in rows]
-#
-#     return doctors
-
 @patient_bp.route('/create_new_patient', methods=['POST'])
 # @jwt_required()
 async def create_new_patient():

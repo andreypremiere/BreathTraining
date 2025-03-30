@@ -1,1 +1,0 @@
-To start this ecosystem it is necessary to download the breathingtrainer file which has been created in a venv conda with all the necessary to work. The file Project 5 with conda contains the code of all the frames created so far. 
